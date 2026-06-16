@@ -172,11 +172,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [ai-personalization]
-    # The `secrets` context is NOT available in `if:`. Pass it through
-    # `env` first, then gate on the env var. Empty string is falsy.
-    env:
-      NVIDIA_API_KEY_FOR_GATE: ${{ secrets.NVIDIA_API_KEY }}
-    if: ${{ env.NVIDIA_API_KEY_FOR_GATE }}
+    # This job only runs on manual "Run workflow" trigger. On push/PR events
+    # it's skipped entirely (the secret context isn't allowed in if: for
+    # push, and even env: is restricted in older runner versions).
+    # The secret is available because workflow_dispatch runs against the
+    # same repo.
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     steps:
       - uses: actions/checkout@v4
 
