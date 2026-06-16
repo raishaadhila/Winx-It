@@ -162,7 +162,7 @@ export function PlanEditorPage() {
           </div>
           <div className="flex gap-2">
             <Button variant="outline">✎ Edit title</Button>
-            <Button>💾 Save changes</Button>
+            <Button>💾 Save</Button>
           </div>
         </div>
 
@@ -358,6 +358,16 @@ export function PlanEditorPage() {
             </p>
           </div>
         )}
+
+        {/* Sticky floating Save — per the wireframe, pinned to the base corner */}
+        <div className="fixed bottom-6 right-6 z-30">
+          <Button
+            className="shadow-glow-pink animate-pulse-glow"
+            onClick={() => toast.success('Plan saved ✦')}
+          >
+            💾 Save
+          </Button>
+        </div>
       </main>
     </div>
   );

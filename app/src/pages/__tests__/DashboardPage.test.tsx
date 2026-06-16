@@ -119,7 +119,9 @@ describe('<DashboardPage> flow', () => {
   it('renders hero with name and XP', async () => {
     setupMocks();
     renderDashboard();
-    expect(await screen.findByText(/raisha/i)).toBeInTheDocument();
+    // "Raisha" now appears in BOTH the sidebar (avatar section) and the
+    // main hero — that's correct per the new split-column wireframe.
+    expect((await screen.findAllByText(/raisha/i)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/LV 5/i).length).toBeGreaterThan(0);
   });
 

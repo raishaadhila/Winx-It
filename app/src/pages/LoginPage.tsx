@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { Button } from '../components/Button';
@@ -22,6 +22,12 @@ export function LoginPage() {
   const [oauthLoading, setOauthLoading] = useState<null | 'google' | 'github'>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+
+  // Per the wireframe: auto-focus the email field on mount + mode change.
+  useEffect(() => {
+    emailRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (session) nav('/dashboard', { replace: true });
@@ -145,6 +151,7 @@ export function LoginPage() {
 
           <form onSubmit={submit} className="space-y-4" noValidate>
             <Input
+              ref={emailRef}
               label="Email"
               type="email"
               placeholder="you@magical.dev"

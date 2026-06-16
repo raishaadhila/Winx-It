@@ -4,6 +4,7 @@ import { AmbientBackground } from '../components/AmbientBackground';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { GlassCard } from '../components/GlassCard';
+import { ResourcesButton } from '../components/ResourcesButton';
 import { Textarea } from '../components/Textarea';
 import { TopNav } from '../components/TopNav';
 import { useToast } from '../contexts/ToastContext';
@@ -111,13 +112,35 @@ export function PromptPage() {
 
           {!generating ? (
             <div className="space-y-6">
-              <Textarea
-                label="Your goal"
-                placeholder={`E.g. "Set up Month 2 focusing on Medical Neuroscience modules and AI Brain Tumor dataset cleanups."`}
-                value={goal}
-                onChange={(e) => setGoal(e.target.value)}
-                rows={6}
-              />
+              <div className="flex items-end justify-between gap-3">
+                <div className="flex-1">
+                  <Textarea
+                    label="Your goal"
+                    placeholder={`E.g. "Set up Month 2 focusing on Medical Neuroscience modules and AI Brain Tumor dataset cleanups."`}
+                    value={goal}
+                    onChange={(e) => setGoal(e.target.value)}
+                    onKeyDown={(e) => {
+                      // Per the wireframe: Cmd/Ctrl+Enter triggers the pipeline.
+                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                        e.preventDefault();
+                        if (goal.trim()) generate();
+                      }
+                    }}
+                    rows={6}
+                  />
+                </div>
+                <ResourcesButton
+                  onPick={(r) => {
+                    // Append the resource as a hint for the AI planner.
+                    setGoal((g) =>
+                      g
+                        ? `${g}\n\n[Attached: ${r.name} — ${r.preview}]`
+                        : `Use ${r.name} (${r.preview}) to help me `,
+                    );
+                    toast.success(`Attached ${r.name}`);
+                  }}
+                />
+              </div>
 
               <div>
                 <label className="block font-label text-label-caps uppercase text-on-surface-variant mb-2">
@@ -175,7 +198,7 @@ export function PromptPage() {
 
               <div className="flex justify-end pt-2">
                 <Button onClick={generate} disabled={!goal.trim()} className="px-8">
-                  ✦ Generate my plan
+                  ✦ Generate my plan <span className="hidden sm:inline opacity-60 text-[10px] ml-2">⌘↵</span>
                 </Button>
               </div>
             </div>
