@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { act, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route } from 'react-router-dom';
 import { renderWithProviders } from '../../test/render';
@@ -18,12 +18,13 @@ vi.mock('../../contexts/AuthContext', async () => {
 vi.mock('../../lib/api', () => ({
   api: { me: { get: vi.fn() } },
   ApiError: class ApiError extends Error {},
-}));
+}) as unknown as typeof import('../../lib/api'));
 
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../lib/api';
 const mockUseAuth = vi.mocked(useAuth);
 const mockApi = vi.mocked(api);
+const mockMeGet = mockApi.me.get as unknown as ReturnType<typeof vi.fn>;
 
 type AuthOverrides = {
   signIn?: (...args: unknown[]) => Promise<{ error?: string }>;
@@ -176,7 +177,7 @@ describe('<LoginPage> flow', () => {
   it('routes to /onboarding when session is set but profile is incomplete', async () => {
     // Session is truthy from the start so the useEffect runs on mount
     mockAuth({ session: { access_token: 'jwt' } as never });
-    mockApi.me.get.mockResolvedValue({
+    mockMeGet.mockResolvedValue({
       id: 'x', email: 'a@b.c', name: '', fairy: 'tecna' as const,
       pillar: 'tecna' as const, accent: 'blue' as const,
       total_xp: 0, level: 1, current_streak: 0, longest_streak: 0,
@@ -198,7 +199,7 @@ describe('<LoginPage> flow', () => {
 
   it('routes to /dashboard when session is set and profile is complete', async () => {
     mockAuth({ session: { access_token: 'jwt' } as never });
-    mockApi.me.get.mockResolvedValue({
+    mockMeGet.mockResolvedValue({
       id: 'x', email: 'a@b.c', name: 'Raisha', fairy: 'tecna' as const,
       pillar: 'tecna' as const, accent: 'blue' as const,
       total_xp: 0, level: 1, current_streak: 0, longest_streak: 0,

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import { Route, Routes } from 'react-router-dom';
+import { Route } from 'react-router-dom';
 import { renderWithProviders } from '../../test/render';
 
 vi.mock('../../contexts/AuthContext', async () => {
@@ -27,10 +27,14 @@ vi.mock('../../lib/api', () => ({
   api: {
     me: { get: vi.fn() },
   },
-  ApiError: class ApiError extends Error { constructor(public status: number, public detail: string) { super(detail); } },
-}));
+  ApiError: class ApiError extends Error { constructor(status: number, detail: string) { super(detail); (this as any).status = status; (this as any).detail = detail; } },
+}) as unknown as typeof import('../../lib/api'));
 import { api } from '../../lib/api';
 const mockApi = vi.mocked(api);
+// `vi.mocked` is shallow — leaf methods like `me.get` keep their real
+// signature, so `mockResolvedValue` doesn't exist on the inferred type.
+// Cast once at the top so each test site stays readable.
+const mockMeGet = mockApi.me.get as unknown as ReturnType<typeof vi.fn>;
 
 type AuthOverrides = {
   session?: null | { access_token: string };
@@ -91,7 +95,7 @@ describe('Auth route guard', () => {
 
   it('unauthed user visiting /plan/new is redirected to /welcome', async () => {
     mockAuth();
-    mockApi.me.get.mockResolvedValue({
+    mockMeGet.mockResolvedValue({
       id: 'x', email: 'a@b.c', name: 'x', fairy: 'tecna', pillar: 'tecna', accent: 'blue',
       total_xp: 0, level: 1, current_streak: 0, longest_streak: 0,
       pillar_xp: { tecna: 0, flora: 0, musa: 0, bloom: 0, stella: 0 },
@@ -103,21 +107,21 @@ describe('Auth route guard', () => {
 
   it('unauthed user visiting /dashboard is redirected to /welcome', async () => {
     mockAuth();
-    mockApi.me.get.mockResolvedValue({} as never);
+    mockMeGet.mockResolvedValue({} as never);
     renderWithProviders(<></>, { initialEntries: ['/dashboard'], routes: ROUTES });
     expect(await screen.findByTestId('welcome-page')).toBeInTheDocument();
   });
 
   it('unauthed user visiting / is redirected to /welcome', async () => {
     mockAuth();
-    mockApi.me.get.mockResolvedValue({} as never);
+    mockMeGet.mockResolvedValue({} as never);
     renderWithProviders(<></>, { initialEntries: ['/'], routes: ROUTES });
     expect(await screen.findByTestId('welcome-page')).toBeInTheDocument();
   });
 
   it('authed user WITH a profile visiting /plan/new sees the page', async () => {
     mockAuth({ session: { access_token: 'jwt' } });
-    mockApi.me.get.mockResolvedValue({
+    mockMeGet.mockResolvedValue({
       id: 'x', email: 'a@b.c', name: 'Test', fairy: 'tecna', pillar: 'tecna', accent: 'blue',
       total_xp: 0, level: 1, current_streak: 0, longest_streak: 0,
       pillar_xp: { tecna: 0, flora: 0, musa: 0, bloom: 0, stella: 0 },
@@ -131,7 +135,7 @@ describe('Auth route guard', () => {
     mockAuth({ session: { access_token: 'jwt' } });
     // Profile is null/empty — api.me.get resolves with a profile that has
     // no name (which we treat as "not set up")
-    mockApi.me.get.mockResolvedValue({
+    mockMeGet.mockResolvedValue({
       id: 'x', email: 'a@b.c', name: '', fairy: 'tecna', pillar: 'tecna', accent: 'blue',
       total_xp: 0, level: 1, current_streak: 0, longest_streak: 0,
       pillar_xp: { tecna: 0, flora: 0, musa: 0, bloom: 0, stella: 0 },

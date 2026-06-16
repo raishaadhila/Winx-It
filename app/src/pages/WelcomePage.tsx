@@ -58,16 +58,14 @@ export default function WelcomePage() {
           <div className="space-y-3 mb-6">
             <Button
               onClick={() => nav('/login')}
-              className="w-full"
-              size="lg"
+              className="w-full !py-3 !text-base"
             >
               ✦ Sign in
             </Button>
             <Button
               onClick={() => nav('/signup')}
               variant="outline"
-              className="w-full"
-              size="lg"
+              className="w-full !py-3 !text-base"
             >
               ✦ Create account
             </Button>
