@@ -22,7 +22,7 @@ jobs:
   # 1. Backend — full pytest suite (unit + integration, LLM mocked)
   # -----------------------------------------------------------------------
   backend:
-    name: Backend tests (Python ${{ env.PYTHON_VERSION }})
+    name: Backend tests (Python 3.12)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -64,7 +64,7 @@ jobs:
   # 2. Frontend — vitest, typecheck, lint
   # -----------------------------------------------------------------------
   frontend:
-    name: Frontend tests (Node ${{ env.NODE_VERSION }})
+    name: Frontend tests (Node 20)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -172,9 +172,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [ai-personalization]
-    # Skip unless the secret is set. If-conditional is fine here — we
-    # want zero cost on default CI.
-    if: ${{ secrets.NVIDIA_API_KEY != '' }}
+    # Skip unless the secret is set. GitHub Actions treats empty strings as
+    # falsy, so a truthy check on the secret is the standard pattern.
+    if: ${{ secrets.NVIDIA_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
