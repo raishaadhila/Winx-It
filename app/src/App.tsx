@@ -7,7 +7,9 @@ import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { PlanEditorPage } from './pages/PlanEditorPage';
 import { PromptPage } from './pages/PromptPage';
+import { QuestsPage } from './pages/QuestsPage';
 import { RequireAuth } from './pages/RequireAuth';
+import { SettingsPage } from './pages/SettingsPage';
 import WelcomePage from './pages/WelcomePage';
 
 function App() {
@@ -42,6 +44,22 @@ function App() {
                 element={
                   <RequireAuth>
                     <DashboardPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/quests"
+                element={
+                  <RequireAuth>
+                    <QuestsPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <RequireAuth>
+                    <SettingsPage />
                   </RequireAuth>
                 }
               />

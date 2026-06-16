@@ -93,3 +93,48 @@ class TestUpdateAvatar:
         assert r.status_code == 200
         # Pydantic should still echo back the same row
         assert r.json()["name"] == sample_profile["name"]
+
+
+class TestUpdateProfile:
+    def test_unauthenticated_returns_401(self, client):
+        r = client.patch("/api/me", json={"name": "New"})
+        assert r.status_code == 401
+
+    def test_updates_name_and_returns_profile(self, client, auth_headers, sample_profile, sample_pillar_xp):
+        admin = _make_supabase_admin(sample_profile, sample_pillar_xp)
+        with patch("app.api.me.get_supabase_admin", return_value=admin):
+            r = client.patch(
+                "/api/me",
+                headers=auth_headers,
+                json={"name": "Aurora", "goal_text": "Ship SaaS"},
+            )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["name"] == sample_profile["name"]
+        assert body["goal_text"] == ""
+
+    def test_updates_avatar_data_url(self, client, auth_headers, sample_profile, sample_pillar_xp):
+        sample_profile["avatar_data_url"] = "data:image/png;base64,AAA"
+        admin = _make_supabase_admin(sample_profile, sample_pillar_xp)
+        with patch("app.api.me.get_supabase_admin", return_value=admin):
+            r = client.patch(
+                "/api/me",
+                headers=auth_headers,
+                json={"avatar_data_url": "data:image/png;base64,AAA"},
+            )
+        assert r.status_code == 200
+        assert r.json()["avatar_data_url"] == "data:image/png;base64,AAA"
+
+    def test_empty_patch_is_a_noop(self, client, auth_headers, sample_profile, sample_pillar_xp):
+        admin = _make_supabase_admin(sample_profile, sample_pillar_xp)
+        with patch("app.api.me.get_supabase_admin", return_value=admin):
+            r = client.patch("/api/me", headers=auth_headers, json={})
+        assert r.status_code == 200
+
+    def test_name_too_long_returns_422(self, client, auth_headers):
+        r = client.patch(
+            "/api/me",
+            headers=auth_headers,
+            json={"name": "x" * 200},
+        )
+        assert r.status_code == 422

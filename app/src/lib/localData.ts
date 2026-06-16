@@ -39,6 +39,8 @@ export type LocalProfile = {
   fairy: 'tecna' | 'bloom' | 'stella' | 'flora' | 'musa' | 'layla';
   pillar: Pillar;
   accent: 'pink' | 'blue' | 'lime' | 'purple' | 'yellow';
+  goal_text: string;
+  avatar_data_url: string | null;
 };
 
 const defaultStats = (): LocalStats => ({
@@ -55,6 +57,8 @@ const defaultProfile = (): LocalProfile => ({
   fairy: 'tecna',
   pillar: 'tecna',
   accent: 'blue',
+  goal_text: '',
+  avatar_data_url: null,
 });
 
 function readJson<T>(key: string, fallback: T): T {
@@ -186,6 +190,8 @@ export const local = {
         pillar: profile.pillar,
         accent: profile.accent,
         avatar_seed: null,
+        avatar_data_url: profile.avatar_data_url,
+        goal_text: profile.goal_text,
         level: stats.level,
         total_xp: stats.total_xp,
         current_streak: stats.current_streak,
@@ -196,6 +202,17 @@ export const local = {
       };
     },
     updateAvatar: async (body: Partial<LocalProfile>): Promise<Profile> => {
+      saveLocalProfile(body);
+      return local.me.get();
+    },
+    update: async (body: {
+      name?: string;
+      fairy?: LocalProfile['fairy'];
+      pillar?: Pillar;
+      accent?: LocalProfile['accent'];
+      goal_text?: string;
+      avatar_data_url?: string | null;
+    }): Promise<Profile> => {
       saveLocalProfile(body);
       return local.me.get();
     },

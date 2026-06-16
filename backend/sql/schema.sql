@@ -21,6 +21,8 @@ create table if not exists public.profiles (
     accent text not null default 'blue'
         check (accent in ('pink', 'blue', 'lime', 'purple', 'yellow')),
     avatar_seed text,
+    avatar_data_url text,
+    goal_text text not null default '',
     level integer not null default 1,
     total_xp integer not null default 0,
     current_streak integer not null default 0,

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -10,7 +11,6 @@ import { RadarStats } from '../components/RadarStats';
 import { Skeleton, SkeletonCard } from '../components/Skeleton';
 import { SpeechBubble } from '../components/SpeechBubble';
 import { TopNav } from '../components/TopNav';
-import { VelocityChart } from '../components/VelocityChart';
 import { useProfile } from '../contexts/ProfileContext';
 import { useToast } from '../contexts/ToastContext';
 import { api, ApiError } from '../lib/api';
@@ -31,11 +31,42 @@ function pickEmoji(title: string): string {
   return '✦';
 }
 
+function todayDaysLeft(endDate: string): number {
+  const end = new Date(endDate);
+  const now = new Date();
+  end.setHours(0, 0, 0, 0);
+  now.setHours(0, 0, 0, 0);
+  return Math.round((end.getTime() - now.getTime()) / 86400000);
+}
+
+function todayDaysIn(startDate: string, endDate: string): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+  return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+}
+
+function todayDaysElapsed(startDate: string, endDate: string): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const now = new Date();
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+  now.setHours(0, 0, 0, 0);
+  const total = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+  return Math.max(
+    0,
+    Math.min(total, Math.round((now.getTime() - start.getTime()) / 86400000) + 1),
+  );
+}
+
 export function DashboardPage() {
   const { profile, applyLocal } = useProfile();
   const toast = useToast();
   const [plans, setPlans] = useState<PlanSummary[] | null>(null);
   const [todayTasks, setTodayTasks] = useState<Task[] | null>(null);
+  const [completionTasks, setCompletionTasks] = useState<Task[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confetti, setConfetti] = useState(false);
@@ -54,8 +85,10 @@ export function DashboardPage() {
         const tasks = await api.tasks.list(active.id);
         const open = tasks.filter((t) => !t.done);
         setTodayTasks(open.length ? open.slice(0, 5) : tasks.slice(0, 5));
+        setCompletionTasks(tasks);
       } else {
         setTodayTasks([]);
+        setCompletionTasks([]);
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : (err as Error).message);
@@ -166,7 +199,7 @@ export function DashboardPage() {
   // Speech bubble message — changes with current stats.
   const bubbleMsg = profile
     ? profile.level >= 5
-      ? `Day ${profile.current_streak} of your streak! +${xpInLevel} XP this level ✨`
+      ? `Level ${profile.level} and climbing! +${xpInLevel} XP this level ✨`
       : `Welcome back! You're Level ${profile.level} — keep casting! ✦`
     : 'Loading your stats…';
 
@@ -207,13 +240,14 @@ export function DashboardPage() {
                 fairy={profile?.fairy ?? 'tecna'}
                 size="xl"
                 showGlow
+                imageUrl={profile?.avatar_data_url ?? null}
                 className="mt-3"
               />
               <p className="mt-3 font-display text-xl font-bold text-on-surface">
                 {profile?.name ?? '…'}
               </p>
               <p className="font-label text-label-caps text-on-surface-variant">
-                Level {profile?.level ?? 1} · {profile?.current_streak ?? 0}d streak
+                Level {profile?.level ?? 1} · {profile?.total_xp.toLocaleString() ?? 0} XP
               </p>
               <div className="mt-3">
                 <SpeechBubble message={bubbleMsg} side="right" />
@@ -225,13 +259,6 @@ export function DashboardPage() {
               <SkeletonCard className="h-80" />
             ) : (
               <RadarStats profile={profile} />
-            )}
-
-            {/* Velocity — kept here for analytics density */}
-            {loading ? (
-              <SkeletonCard className="h-56" />
-            ) : (
-              <VelocityChart />
             )}
           </aside>
 
@@ -335,74 +362,19 @@ export function DashboardPage() {
               )}
             </GlassCard>
 
-            {/* Streak panel — UNCHANGED streak style (moved here so it stays in the user's face) */}
-            <StreakPanel loading={loading} />
+            {/* Days Left — replaces the old streak panel */}
+            <DaysLeftPanel plans={plans} loading={loading} />
 
-            {/* Active plans grid */}
-            <GlassCard className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display text-headline-lg-mobile font-bold text-on-surface">
-                  ✦ Active Plans
-                </h2>
-                <Link to="/plan/new">
-                  <Button>+ New plan</Button>
-                </Link>
-              </div>
-              {loading ? (
-                <Skeleton rows={2} />
-              ) : !plans || plans.length === 0 ? (
-                <div className="py-8 text-center text-on-surface-variant">
-                  <p className="font-body text-body-md">No plans yet. Create your first quest ✦</p>
-                </div>
-              ) : (
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {plans.map((p) => (
-                    <Link to={`/plan/${p.id}`} key={p.id}>
-                      <GlassCard hoverable className="p-4 h-full">
-                        <div className="flex items-start justify-between mb-2">
-                          <span className="text-2xl">{pickEmoji(p.title)}</span>
-                          <span className="font-label text-label-caps text-on-surface-variant">
-                            {p.done_tasks}/{p.total_tasks}
-                          </span>
-                        </div>
-                        <h3 className="font-display text-lg font-bold text-on-surface leading-tight mb-3">
-                          {p.title}
-                        </h3>
-                        <div className="h-1.5 rounded-full bg-primary/10 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-[#ffb7e9] to-[#94f1fb]"
-                            style={{ width: `${p.progress * 100}%` }}
-                          />
-                        </div>
-                        <p className="mt-1 font-label text-label-caps text-on-surface-variant text-right">
-                          {Math.round(p.progress * 100)}%
-                        </p>
-                      </GlassCard>
-                    </Link>
-                  ))}
-                  <Link to="/plan/new">
-                    <GlassCard
-                      hoverable
-                      className="p-4 h-full flex flex-col items-center justify-center text-center border-dashed border-2 border-primary/30 bg-white/20"
-                    >
-                      <span className="text-3xl text-primary mb-2">✦</span>
-                      <p className="font-display text-lg font-bold text-primary">New quest</p>
-                      <p className="font-label text-label-caps text-on-surface-variant mt-1">
-                        Transform a new goal
-                      </p>
-                    </GlassCard>
-                  </Link>
-                </div>
-              )}
-            </GlassCard>
+            {/* Completion chart — tasks done per day */}
+            <CompletionChart tasks={completionTasks} loading={loading} />
           </section>
         </div>
       </main>
 
       <Link
-        to="/plan/new"
+        to="/quests"
         className="sm:hidden fixed bottom-6 right-6 z-40 btn-primary !rounded-full !p-4 shadow-glow-pink"
-        aria-label="New plan"
+        aria-label="Your quests"
       >
         <span className="text-xl">✦</span>
       </Link>
@@ -412,54 +384,201 @@ export function DashboardPage() {
 
 /* ---------- Subcomponents ---------- */
 
-function StreakPanel({ loading }: { loading: boolean }) {
-  const { profile } = useProfile();
-  if (loading || !profile) {
+function DaysLeftPanel({
+  plans,
+  loading,
+}: {
+  plans: PlanSummary[] | null;
+  loading: boolean;
+}) {
+  if (loading) {
     return <SkeletonCard className="h-40" />;
   }
+  if (!plans || plans.length === 0) {
+    return (
+      <GlassCard className="p-5">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-display text-headline-lg-mobile font-bold text-on-surface">
+            ⏳ Days Left
+          </h2>
+        </div>
+        <p className="font-body text-body-md text-on-surface-variant text-center py-4">
+          No active quests — cast your first to start the clock ✦
+        </p>
+        <div className="flex justify-center">
+          <Link to="/plan/new">
+            <Button>+ New quest</Button>
+          </Link>
+        </div>
+      </GlassCard>
+    );
+  }
+
   return (
     <GlassCard className="p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-display text-headline-lg-mobile font-bold text-on-surface">
-          🔥 Streak
+          ⏳ Days Left
         </h2>
-        <span className="font-label text-label-caps text-on-surface-variant">
-          {profile.current_streak}d
-        </span>
+        <Link
+          to="/quests"
+          className="font-label text-label-caps uppercase text-primary hover:underline"
+        >
+          View all →
+        </Link>
       </div>
-      <div className="text-center py-2">
-        <p className="font-display text-5xl font-extrabold bg-gradient-to-r from-[#ff5fa2] to-[#ffaa3a] bg-clip-text text-transparent">
-          {profile.current_streak}
-        </p>
-        <p className="font-label text-label-caps text-on-surface-variant mt-1">day streak</p>
-      </div>
-      <div className="my-3 h-1.5 rounded-full bg-outline-variant/30 overflow-hidden">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-[#ffb7e9] to-[#ffaa3a]"
-          style={{ width: `${(profile.current_streak / 30) * 100}%` }}
-        />
-      </div>
-      <div className="flex justify-between font-label text-label-caps text-on-surface-variant">
-        <span>Longest: {profile.longest_streak}d</span>
-        <span>{30 - profile.current_streak}d to badge</span>
-      </div>
-      <div className="mt-4 grid grid-cols-7 gap-1">
-        {Array.from({ length: 7 }).map((_, i) => (
-          <div
-            key={i}
-            className={cn(
-              'aspect-square rounded-md flex items-center justify-center text-xs',
-              i < profile.current_streak % 7
-                ? 'bg-gradient-to-br from-[#ffb7e9] to-[#ffaa3a] text-white shadow-glow-pink'
-                : 'bg-white/30 text-on-surface-variant',
-            )}
-          >
-            {i < profile.current_streak % 7 ? '✦' : '·'}
-          </div>
-        ))}
+      <div className="space-y-3">
+        {plans.map((p) => {
+          const total = todayDaysIn(p.start_date, p.end_date);
+          const elapsed = todayDaysElapsed(p.start_date, p.end_date);
+          const left = todayDaysLeft(p.end_date);
+          const pct = Math.min(100, (elapsed / total) * 100);
+          const over = left < 0;
+          return (
+            <Link
+              to={`/plan/${p.id}`}
+              key={p.id}
+              className="block hover:opacity-90 transition"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl shrink-0">{pickEmoji(p.title)}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1 gap-2">
+                    <p className="font-display text-body-md font-bold text-on-surface truncate">
+                      {p.title}
+                    </p>
+                    <span
+                      className={cn(
+                        'font-label text-label-caps shrink-0',
+                        over
+                          ? 'text-error'
+                          : left <= 3
+                            ? 'text-primary text-glow-pink'
+                            : 'text-on-surface-variant',
+                      )}
+                    >
+                      {over
+                        ? `${Math.abs(left)}d over`
+                        : left === 0
+                          ? 'Last day!'
+                          : `${left}d left`}
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-primary/10 overflow-hidden">
+                    <div
+                      className={cn(
+                        'h-full rounded-full transition-all',
+                        over
+                          ? 'bg-error/70'
+                          : 'bg-gradient-to-r from-[#ffb7e9] via-[#94f1fb] to-[#b1dd00]',
+                      )}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 font-label text-label-caps text-on-surface-variant">
+                    Day {elapsed} of {total} · {p.timeframe}
+                  </p>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </GlassCard>
   );
+}
+
+function CompletionChart({
+  tasks,
+  loading,
+}: {
+  tasks: Task[] | null;
+  loading: boolean;
+}) {
+  const data = buildCompletionSeries(tasks);
+  const totalDone = data.reduce((s, d) => s + d.tasks, 0);
+  return (
+    <GlassCard className="p-5">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="font-display text-headline-lg-mobile font-bold text-on-surface">
+          ✦ Completion Chart
+        </h2>
+        <span className="font-label text-label-caps text-on-surface-variant">
+          last 14 days · {totalDone} done
+        </span>
+      </div>
+      {loading ? (
+        <SkeletonCard className="h-56" />
+      ) : data.every((d) => d.tasks === 0) ? (
+        <p className="font-body text-body-md text-on-surface-variant text-center py-6">
+          No completions yet. Finish a task to light up the chart ✦
+        </p>
+      ) : (
+        <div className="h-56 w-full">
+          <ResponsiveContainer>
+            <BarChart data={data} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="completion-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ffb7e9" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#94f1fb" stopOpacity={0.8} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="#d3c2cb" strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="day"
+                tick={{ fill: '#4f434b', fontSize: 11, fontFamily: 'Space Grotesk' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fill: '#4f434b', fontSize: 11, fontFamily: 'Space Grotesk' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                cursor={{ fill: 'rgba(255,183,233,0.1)' }}
+                contentStyle={{
+                  background: 'rgba(255,255,255,0.85)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255,255,255,0.8)',
+                  borderRadius: '8px',
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: '13px',
+                }}
+              />
+              <Bar dataKey="tasks" fill="url(#completion-grad)" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </GlassCard>
+  );
+}
+
+function buildCompletionSeries(tasks: Task[] | null): { day: string; tasks: number }[] {
+  const days: { day: string; tasks: number; sort: number }[] = [];
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    days.push({
+      day: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      tasks: 0,
+      sort: d.getTime(),
+    });
+  }
+  if (!tasks) return days.map(({ day, tasks }) => ({ day, tasks }));
+  const map = new Map(days.map((d) => [d.sort, d]));
+  for (const t of tasks) {
+    if (!t.done || !t.completed_at) continue;
+    const c = new Date(t.completed_at);
+    c.setHours(0, 0, 0, 0);
+    const day = map.get(c.getTime());
+    if (day) day.tasks += 1;
+  }
+  return days.map(({ day, tasks }) => ({ day, tasks }));
 }
 
 function SparkleDots() {

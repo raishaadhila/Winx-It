@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.security import AuthUser, get_current_user
 from app.db.supabase import get_supabase_admin, get_supabase_user
-from app.schemas.models import AvatarUpdate, ProfileOut
+from app.schemas.models import AvatarUpdate, ProfileOut, ProfileUpdate
 from app.services.xp_engine import xp_to_next
 
 router = APIRouter(prefix="/api/me", tags=["me"])
@@ -20,6 +20,8 @@ def _build_profile(row: dict, pillar_row: dict) -> ProfileOut:
         pillar=row.get("pillar") or "tecna",
         accent=row.get("accent") or "blue",
         avatar_seed=row.get("avatar_seed"),
+        avatar_data_url=row.get("avatar_data_url"),
+        goal_text=row.get("goal_text") or "",
         level=int(row.get("level") or 1),
         total_xp=int(row.get("total_xp") or 0),
         current_streak=int(row.get("current_streak") or 0),
@@ -34,6 +36,12 @@ def _build_profile(row: dict, pillar_row: dict) -> ProfileOut:
         },
         xp_to_next_level=xp_to_next(int(row.get("total_xp") or 0)),
     )
+
+
+def _refetch(admin, user_id: str) -> ProfileOut:
+    profile = admin.table("profiles").select("*").eq("id", user_id).single().execute().data
+    pillar = admin.table("pillar_xp").select("*").eq("user_id", user_id).single().execute().data or {}
+    return _build_profile(profile, pillar)
 
 
 @router.get("", response_model=ProfileOut)
@@ -62,6 +70,21 @@ def update_avatar(
     if patch:
         admin.table("profiles").update(patch).eq("id", user.id).execute()
 
-    profile = admin.table("profiles").select("*").eq("id", user.id).single().execute().data
-    pillar = admin.table("pillar_xp").select("*").eq("user_id", user.id).single().execute().data or {}
-    return _build_profile(profile, pillar)
+    return _refetch(admin, user.id)
+
+
+@router.patch("", response_model=ProfileOut)
+def update_profile(
+    body: ProfileUpdate,
+    user: Annotated[AuthUser, Depends(get_current_user)],
+):
+    """Update editable profile fields (name, personality, accent, goals, avatar image)."""
+    admin = get_supabase_admin()
+    if admin is None:
+        raise HTTPException(503, "Database not configured")
+
+    patch = {k: v for k, v in body.model_dump(exclude_none=True).items()}
+    if patch:
+        admin.table("profiles").update(patch).eq("id", user.id).execute()
+
+    return _refetch(admin, user.id)

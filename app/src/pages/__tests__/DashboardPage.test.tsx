@@ -132,10 +132,10 @@ describe('<DashboardPage> flow', () => {
     expect(await screen.findByText(/dataset prep/i)).toBeInTheDocument();
   });
 
-  it('shows streak card with the current streak', async () => {
+  it('shows days-left card with the days remaining for each plan', async () => {
     setupMocks();
     renderDashboard();
-    expect(await screen.findByText(/day streak/i)).toBeInTheDocument();
+    expect(await screen.findByText(/days left/i)).toBeInTheDocument();
   });
 
   it('shows active plans grid with the plan card', async () => {

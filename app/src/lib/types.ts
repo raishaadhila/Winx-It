@@ -16,6 +16,8 @@ export type Profile = {
   pillar: Pillar;
   accent: Accent;
   avatar_seed: string | null;
+  avatar_data_url?: string | null;
+  goal_text?: string;
   level: number;
   total_xp: number;
   current_streak: number;
@@ -166,4 +168,13 @@ export type AvatarUpdate = {
   accent?: Accent;
   name?: string;
   avatar_seed?: string;
+};
+
+export type ProfileUpdate = {
+  name?: string;
+  fairy?: Fairy;
+  pillar?: Pillar;
+  accent?: Accent;
+  goal_text?: string;
+  avatar_data_url?: string | null;
 };

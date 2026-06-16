@@ -7,6 +7,8 @@ type Props = {
   ringColor?: PillarId;
   showGlow?: boolean;
   className?: string;
+  /** When set, the uploaded image is shown instead of the fairy emoji. */
+  imageUrl?: string | null;
 };
 
 const SIZES = {
@@ -16,21 +18,24 @@ const SIZES = {
   xl: 'w-36 h-36 text-7xl',
 };
 
-export function Avatar({ fairy, size = 'md', ringColor, showGlow, className }: Props) {
+export function Avatar({ fairy, size = 'md', ringColor, showGlow, className, imageUrl }: Props) {
   const f = FAIRIES[fairy];
   const ring = ringColor ? PILLAR_COLORS[ringColor] : null;
+  const hasImage = Boolean(imageUrl);
 
   return (
     <div
       className={cn(
         'relative inline-flex items-center justify-center rounded-full transition-transform duration-300',
-        'border-2 border-white',
+        'border-2 border-white overflow-hidden',
         SIZES[size],
         showGlow && 'animate-float',
         className,
       )}
       style={{
-        background: `radial-gradient(circle at 30% 30%, ${f.colors.from}, ${f.colors.to})`,
+        background: hasImage
+          ? '#fff'
+          : `radial-gradient(circle at 30% 30%, ${f.colors.from}, ${f.colors.to})`,
         boxShadow: showGlow
           ? `0 0 24px ${f.colors.from}80, 0 0 48px ${f.colors.to}40`
           : '0 4px 16px rgba(133, 75, 118, 0.2)',
@@ -39,9 +44,17 @@ export function Avatar({ fairy, size = 'md', ringColor, showGlow, className }: P
       }}
       aria-label={`${f.name} avatar`}
     >
-      <span aria-hidden className="drop-shadow-sm">
-        {f.emoji}
-      </span>
+      {hasImage ? (
+        <img
+          src={imageUrl!}
+          alt={`${f.name} custom avatar`}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      ) : (
+        <span aria-hidden className="drop-shadow-sm">
+          {f.emoji}
+        </span>
+      )}
       <span
         aria-hidden
         className="absolute -top-1 -right-1 text-white text-xs animate-twinkle"

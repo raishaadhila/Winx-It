@@ -547,7 +547,7 @@ describe('[DashboardPage] /dashboard', () => {
     expect(await screen.findByRole('button', { name: /create your first plan/i })).toBeInTheDocument();
   });
 
-  it('BTN 34: "+ New plan" header button is rendered when plans exist', async () => {
+  it('BTN 34: Dashboard no longer renders an "Active Plans" grid (moved to /quests)', async () => {
     mockApi.plans.list.mockResolvedValue([
       {
         id: 'plan-1', title: 'Neuro MVP', timeframe: '3 months',
@@ -558,10 +558,14 @@ describe('[DashboardPage] /dashboard', () => {
     ]);
     mockApi.tasks.list.mockResolvedValue([]);
     renderDashboard();
-    expect(await screen.findByRole('button', { name: /\+ new plan/i })).toBeInTheDocument();
+    // Old dashboard button is gone; the "View all →" link to /quests is here instead.
+    expect(
+      screen.queryByRole('button', { name: /^\+ new plan$/i }),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText(/view all/i)).toBeInTheDocument();
   });
 
-  it('BTN 35: "New quest" dashed card button is rendered alongside plan cards', async () => {
+  it('BTN 35: Dashboard shows a "Days Left" panel for each plan', async () => {
     mockApi.plans.list.mockResolvedValue([
       {
         id: 'plan-1', title: 'Neuro MVP', timeframe: '3 months',
@@ -572,7 +576,8 @@ describe('[DashboardPage] /dashboard', () => {
     ]);
     mockApi.tasks.list.mockResolvedValue([]);
     renderDashboard();
-    expect(await screen.findByText(/new quest/i)).toBeInTheDocument();
+    expect(await screen.findByText(/days left/i)).toBeInTheDocument();
+    expect(await screen.findByText(/d left/i)).toBeInTheDocument();
   });
 
   it('BTN 36: Task checkbox fires api.tasks.complete and toasts XP', async () => {
@@ -629,11 +634,11 @@ describe('[DashboardPage] /dashboard', () => {
     expect(await screen.findByRole('button', { name: /mark all complete/i })).toBeInTheDocument();
   });
 
-  it('BTN 38: Mobile FAB "+" floating button is rendered (aria-label="New plan")', async () => {
+  it('BTN 38: Mobile FAB links to /quests (aria-label="Your quests")', async () => {
     mockApi.plans.list.mockResolvedValue([]);
     mockApi.tasks.list.mockResolvedValue([]);
     renderDashboard();
-    const fab = await screen.findByLabelText(/new plan/i);
+    const fab = await screen.findByLabelText(/your quests/i);
     expect(fab).toBeInTheDocument();
     expect(fab.tagName.toLowerCase()).toBe('a');
   });

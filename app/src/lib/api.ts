@@ -14,6 +14,7 @@ import type {
   PlanSummary,
   PlanUpdate,
   Profile,
+  ProfileUpdate,
   Task,
   TaskCompleteResponse,
   TaskCreate,
@@ -98,6 +99,10 @@ export const api = {
     updateAvatar: async (body: AvatarUpdate): Promise<Profile> => {
       if (!(await isAuthed())) return local.me.updateAvatar(body);
       return request<Profile>('PUT', '/api/me/avatar', body);
+    },
+    update: async (body: ProfileUpdate): Promise<Profile> => {
+      if (!(await isAuthed())) return local.me.update(body);
+      return request<Profile>('PATCH', '/api/me', body);
     },
   },
   plans: {

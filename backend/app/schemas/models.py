@@ -38,6 +38,8 @@ class ProfileOut(BaseModel):
     pillar: Pillar
     accent: Accent
     avatar_seed: str | None = None
+    avatar_data_url: str | None = None
+    goal_text: str = ""
     level: int
     total_xp: int
     current_streak: int
@@ -53,6 +55,16 @@ class AvatarUpdate(BaseModel):
     accent: Accent | None = None
     name: str | None = None
     avatar_seed: str | None = None
+
+
+class ProfileUpdate(BaseModel):
+    """Editable profile fields. All optional — only provided fields are written."""
+    name: str | None = Field(None, min_length=1, max_length=80)
+    fairy: Fairy | None = None
+    pillar: Pillar | None = None
+    accent: Accent | None = None
+    goal_text: str | None = Field(None, max_length=2000)
+    avatar_data_url: str | None = Field(None, max_length=2_000_000)
 
 
 # --- Plans ------------------------------------------------------------------

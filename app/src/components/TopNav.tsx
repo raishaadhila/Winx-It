@@ -81,7 +81,11 @@ export function TopNav() {
                 className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50"
                 aria-label="Account menu"
               >
-                <Avatar fairy={profile?.fairy ?? 'tecna'} size="sm" />
+                <Avatar
+                  fairy={profile?.fairy ?? 'tecna'}
+                  size="sm"
+                  imageUrl={profile?.avatar_data_url ?? null}
+                />
               </button>
               {menuOpen && (
                 <>
@@ -96,9 +100,23 @@ export function TopNav() {
                           LV {profile?.level ?? 1}
                         </p>
                       </div>
+                      <Link
+                        to="/quests"
+                        onClick={() => setMenuOpen(false)}
+                        className="block w-full text-left px-3 py-2 mt-1 rounded font-label text-label-caps uppercase text-on-surface hover:bg-white/40 transition"
+                      >
+                        ✦ Quests
+                      </Link>
+                      <Link
+                        to="/settings"
+                        onClick={() => setMenuOpen(false)}
+                        className="block w-full text-left px-3 py-2 rounded font-label text-label-caps uppercase text-on-surface hover:bg-white/40 transition"
+                      >
+                        ⚙ Settings
+                      </Link>
                       <button
                         onClick={handleSignOut}
-                        className="w-full text-left px-3 py-2 mt-1 rounded font-label text-label-caps uppercase text-on-surface hover:bg-white/40 transition"
+                        className="w-full text-left px-3 py-2 rounded font-label text-label-caps uppercase text-on-surface hover:bg-white/40 transition"
                       >
                         Sign out
                       </button>
