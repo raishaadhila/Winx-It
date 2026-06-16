@@ -78,6 +78,7 @@ class TestOpenAPI:
         paths = r.json()["paths"]
         expected = {
             "/health",
+            "/api/health",
             "/api/me", "/api/me/avatar",
             "/api/plans", "/api/plans/generate",
             "/api/plans/{plan_id}",

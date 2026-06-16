@@ -1,0 +1,28 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+
+  "builds": [
+    {
+      "src": "app/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "app/dist"
+      }
+    },
+    {
+      "src": "backend/vercel_index.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb",
+        "maxDuration": 60,
+        "runtime": "python3.12"
+      }
+    }
+  ],
+
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "backend/vercel_index.py" },
+    { "source": "/(.*)",      "destination": "/app/dist/$1" }
+  ]
+}

@@ -30,8 +30,7 @@ app.add_middleware(
 )
 
 
-@app.get("/health", tags=["meta"])
-def health():
+def _health_payload() -> dict:
     return {
         "status": "ok",
         "env": settings.environment,
@@ -41,6 +40,21 @@ def health():
         "llm_model": settings.nvidia_model,
         "llm_base_url": settings.nvidia_base_url,
     }
+
+
+# Both /health (local dev: uvicorn) and /api/health (Vercel: rewrite
+# forwards the full path) reach the same handler. The /api/health
+# alias exists because on Vercel the request lands at the function
+# with the full /api/health path, and we don't strip the prefix in
+# Mangum (the routers use /api/* prefixes).
+@app.get("/health", tags=["meta"])
+def health():
+    return _health_payload()
+
+
+@app.get("/api/health", tags=["meta"])
+def health_api():
+    return _health_payload()
 
 
 app.include_router(me.router)

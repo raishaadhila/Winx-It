@@ -6,3 +6,7 @@ supabase==2.10.0
 openai==1.99.9
 python-jose[cryptography]==3.3.0
 python-dotenv==1.0.1
+# Mangum is the ASGI→AWS-Lambda adapter that Vercel uses for Python
+# serverless functions. The FastAPI app gets wrapped in Mangum so the
+# single vercel_index.py entry point can serve the whole API surface.
+mangum==0.17.0
