@@ -6,6 +6,7 @@ import { GlassCard } from '../components/GlassCard';
 import { Input } from '../components/Input';
 import { SparkleField } from '../components/SparkleField';
 import { useAuth } from '../contexts/AuthContext';
+import { api } from '../lib/api';
 import { isValidEmail } from '../lib/validation';
 
 type Mode = 'signin' | 'signup';
@@ -30,7 +31,21 @@ export function LoginPage() {
   }, []);
 
   useEffect(() => {
-    if (session) nav('/dashboard', { replace: true });
+    if (!session) return;
+    // After sign-in: if profile is missing/incomplete, route to /onboarding.
+    // Otherwise go straight to /dashboard.
+    api.me.get()
+      .then((p) => {
+        if (p?.name && p?.fairy) {
+          nav('/dashboard', { replace: true });
+        } else {
+          nav('/onboarding', { replace: true });
+        }
+      })
+      .catch(() => {
+        // Couldn't read the profile; default to dashboard.
+        nav('/dashboard', { replace: true });
+      });
   }, [session, nav]);
 
   const switchMode = (m: Mode) => {
@@ -74,7 +89,8 @@ export function LoginPage() {
       setMode('signin');
       return;
     }
-    nav('/dashboard', { replace: true });
+    // For sign-in, the useEffect above handles routing once `session`
+    // flips truthy (since the auth state change fires after this).
   };
 
   const oauth = async (p: 'google' | 'github') => {

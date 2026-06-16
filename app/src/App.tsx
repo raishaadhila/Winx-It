@@ -7,6 +7,8 @@ import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { PlanEditorPage } from './pages/PlanEditorPage';
 import { PromptPage } from './pages/PromptPage';
+import { RequireAuth } from './pages/RequireAuth';
+import WelcomePage from './pages/WelcomePage';
 
 function App() {
   return (
@@ -15,13 +17,35 @@ function App() {
         <ToastProvider>
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Navigate to="/plan/new" replace />} />
-              <Route path="/plan/new" element={<PromptPage />} />
-              <Route path="/plan/:id" element={<PlanEditorPage />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/welcome" element={<WelcomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/onboarding" element={<AvatarPickerPage />} />
-              <Route path="*" element={<Navigate to="/plan/new" replace />} />
+              <Route
+                path="/plan/new"
+                element={
+                  <RequireAuth>
+                    <PromptPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/plan/:id"
+                element={
+                  <RequireAuth>
+                    <PlanEditorPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/dashboard"
+                element={
+                  <RequireAuth>
+                    <DashboardPage />
+                  </RequireAuth>
+                }
+              />
+              <Route path="/" element={<Navigate to="/welcome" replace />} />
+              <Route path="*" element={<Navigate to="/welcome" replace />} />
             </Routes>
           </BrowserRouter>
         </ToastProvider>

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route } from 'react-router-dom';
 import { renderWithProviders } from '../../test/render';
@@ -15,8 +15,15 @@ vi.mock('../../contexts/AuthContext', async () => {
   };
 });
 
+vi.mock('../../lib/api', () => ({
+  api: { me: { get: vi.fn() } },
+  ApiError: class ApiError extends Error {},
+}));
+
 import { useAuth } from '../../contexts/AuthContext';
+import { api } from '../../lib/api';
 const mockUseAuth = vi.mocked(useAuth);
+const mockApi = vi.mocked(api);
 
 type AuthOverrides = {
   signIn?: (...args: unknown[]) => Promise<{ error?: string }>;
@@ -95,7 +102,7 @@ describe('<LoginPage> flow', () => {
     expect(btn).not.toBeDisabled();
   });
 
-  it('calls signIn with email + password and navigates to /dashboard on success', async () => {
+  it('calls signIn with email + password on submit', async () => {
     const user = userEvent.setup();
     const signIn = vi.fn().mockResolvedValue({});
     mockAuth({ signIn });
@@ -108,7 +115,8 @@ describe('<LoginPage> flow', () => {
     await waitFor(() => {
       expect(signIn).toHaveBeenCalledWith('raisha@winx.dev', 'secret123');
     });
-    expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
+    // Navigation to /dashboard happens in the session useEffect once
+    // the auth state flips, which is tested separately in AuthGuard.test.tsx
   });
 
   it('shows error message when signIn fails', async () => {
@@ -163,5 +171,50 @@ describe('<LoginPage> flow', () => {
 
     await user.click(screen.getByRole('button', { name: /google/i }));
     expect(await screen.findByText(/google not enabled/i)).toBeInTheDocument();
+  });
+
+  it('routes to /onboarding when session is set but profile is incomplete', async () => {
+    // Session is truthy from the start so the useEffect runs on mount
+    mockAuth({ session: { access_token: 'jwt' } as never });
+    mockApi.me.get.mockResolvedValue({
+      id: 'x', email: 'a@b.c', name: '', fairy: 'tecna' as const,
+      pillar: 'tecna' as const, accent: 'blue' as const,
+      total_xp: 0, level: 1, current_streak: 0, longest_streak: 0,
+      pillar_xp: { tecna: 0, flora: 0, musa: 0, bloom: 0, stella: 0 },
+      created_at: '2026-06-16', updated_at: '2026-06-16',
+    });
+
+    const ROUTES = (
+      <>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/onboarding" element={<div data-testid="onboarding">ONBOARDING</div>} />
+        <Route path="/dashboard" element={<div data-testid="dashboard">DASHBOARD</div>} />
+      </>
+    );
+    renderWithProviders(null, { initialEntries: ['/login'], routes: ROUTES });
+
+    expect(await screen.findByTestId('onboarding')).toBeInTheDocument();
+  });
+
+  it('routes to /dashboard when session is set and profile is complete', async () => {
+    mockAuth({ session: { access_token: 'jwt' } as never });
+    mockApi.me.get.mockResolvedValue({
+      id: 'x', email: 'a@b.c', name: 'Raisha', fairy: 'tecna' as const,
+      pillar: 'tecna' as const, accent: 'blue' as const,
+      total_xp: 0, level: 1, current_streak: 0, longest_streak: 0,
+      pillar_xp: { tecna: 0, flora: 0, musa: 0, bloom: 0, stella: 0 },
+      created_at: '2026-06-16', updated_at: '2026-06-16',
+    });
+
+    const ROUTES = (
+      <>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/onboarding" element={<div data-testid="onboarding">ONBOARDING</div>} />
+        <Route path="/dashboard" element={<div data-testid="dashboard">DASHBOARD</div>} />
+      </>
+    );
+    renderWithProviders(null, { initialEntries: ['/login'], routes: ROUTES });
+
+    expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
   });
 });
