@@ -10,6 +10,7 @@
  * which the caller then persists via `plans.create()`.
  */
 import type {
+  Pillar,
   Plan,
   PlanCreate,
   PlanGenerateRequest,

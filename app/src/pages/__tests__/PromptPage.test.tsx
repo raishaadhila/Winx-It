@@ -296,7 +296,7 @@ describe('<PromptPage> flow', () => {
     expect(new Set(payload.pillars)).toEqual(new Set(['flora', 'stella']));
     // 5. Attachment is forwarded
     expect(payload.attachments).toBeDefined();
-    expect(payload.attachments[0].kind).toBe('link');
-    expect(payload.attachments[0].value).toBe('https://docs.halfmarathon.training/plan');
+    expect(payload.attachments![0].kind).toBe('link');
+    expect(payload.attachments![0].value).toBe('https://docs.halfmarathon.training/plan');
   }, 15000);
 });

@@ -115,7 +115,7 @@ export function PromptPage() {
       if (generated.fallback_stub) {
         toast.error(
           `Plan generated (${taskCount} tasks) — but the server returned a generic stub because the LLM key is missing. Set NVIDIA_API_KEY in backend/.env to get a personalized plan.`,
-          { duration: 9000 },
+          9000,
         );
       } else {
         toast.success(`Plan created with ${taskCount} tasks ✦`);

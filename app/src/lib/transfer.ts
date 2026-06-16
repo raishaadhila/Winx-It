@@ -9,7 +9,7 @@
  * the same plans twice (which would create duplicates).
  */
 import { isSupabaseConfigured, supabase } from './supabase';
-import { listLocalPlans, deleteLocalPlan, getLocalProfile, saveLocalProfile } from './localData';
+import { listLocalPlans, deleteLocalPlan, getLocalProfile } from './localData';
 import { api } from './api';
 import type { Plan, PlanCreate, Task } from './types';
 
@@ -72,15 +72,22 @@ export async function transferLocalPlansToCloud(): Promise<TransferResult> {
   // and the successful ones are already deleted from localStorage.
   localStorage.setItem(TRANSFERRED_FLAG, '1');
 
-  // Also carry the local XP/profile over so the user doesn't lose their
-  // streak from guest mode
+  // Also carry the local profile over so the user doesn't lose their
+  // settings from guest mode. (XP/streak live in the local stats store
+  // and the backend re-derives them on first task completion.)
   const profile = getLocalProfile();
   if (profile) {
     try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) return result;
       await supabase.from('profiles').upsert({
-        id: (await supabase.auth.getUser()).data.user?.id,
-        display_name: profile.display_name,
-        avatar_fairy: profile.fairy,
+        id: userId,
+        name: profile.name,
+        fairy: profile.fairy,
+        pillar: profile.pillar,
+        accent: profile.accent,
+        avatar_data_url: profile.avatar_data_url,
+        goal_text: profile.goal_text,
         updated_at: new Date().toISOString(),
       });
     } catch (e) {
