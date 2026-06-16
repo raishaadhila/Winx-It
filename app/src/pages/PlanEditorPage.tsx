@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { AmbientBackground } from '../components/AmbientBackground';
 import { Button } from '../components/Button';
 import { Confetti } from '../components/Confetti';
 import { GlassCard } from '../components/GlassCard';
+import { Input } from '../components/Input';
 import { PillBadge } from '../components/PillBadge';
 import { Skeleton, SkeletonCard } from '../components/Skeleton';
 import { TopNav } from '../components/TopNav';
@@ -11,12 +12,21 @@ import { useProfile } from '../contexts/ProfileContext';
 import { useToast } from '../contexts/ToastContext';
 import { api, ApiError } from '../lib/api';
 import { cn } from '../lib/cn';
+import { PILLAR_LABELS, type PillarId as Pillar } from '../data/mock';
 import type { Plan, Task } from '../lib/types';
 
 type Tab = 'table' | 'timeline' | 'pillars';
 
+const PILLAR_OPTIONS: Pillar[] = ['tecna', 'flora', 'musa', 'bloom', 'stella'];
+const ENERGY_OPTIONS = ['low', 'medium', 'high'] as const;
+
+function toDateString(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 export function PlanEditorPage() {
   const { id } = useParams<{ id: string }>();
+  const nav = useNavigate();
   const toast = useToast();
   const { applyLocal } = useProfile();
 
@@ -28,6 +38,16 @@ export function PlanEditorPage() {
   const [confetti, setConfetti] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [completing, setCompleting] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+  const [savingTitle, setSavingTitle] = useState(false);
+  const [addTaskOpen, setAddTaskOpen] = useState(false);
+  const [newTaskDesc, setNewTaskDesc] = useState('');
+  const [newTaskPillar, setNewTaskPillar] = useState<Pillar>('tecna');
+  const [newTaskHours, setNewTaskHours] = useState(1);
+  const [newTaskEnergy, setNewTaskEnergy] = useState<(typeof ENERGY_OPTIONS)[number]>('medium');
+  const [addingTask, setAddingTask] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -101,6 +121,147 @@ export function PlanEditorPage() {
     if (allTodayDone) setConfetti(true);
   };
 
+  const startTitleEdit = () => {
+    if (!plan) return;
+    setTitleDraft(plan.title);
+    setEditingTitle(true);
+  };
+
+  const cancelTitleEdit = () => {
+    setEditingTitle(false);
+    setTitleDraft('');
+  };
+
+  const commitTitleEdit = async () => {
+    if (!plan) return;
+    const next = titleDraft.trim();
+    if (!next || next === plan.title) {
+      cancelTitleEdit();
+      return;
+    }
+    setSavingTitle(true);
+    try {
+      const updated = await api.plans.update(plan.id, { title: next });
+      setPlan(updated);
+      toast.success('Title updated ✦');
+      setEditingTitle(false);
+      setTitleDraft('');
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : 'Failed to update title';
+      toast.error(msg);
+    } finally {
+      setSavingTitle(false);
+    }
+  };
+
+  const submitNewTask = async () => {
+    if (!plan) return;
+    const description = newTaskDesc.trim();
+    if (!description) {
+      toast.error('Task needs a description');
+      return;
+    }
+    setAddingTask(true);
+    try {
+      const lastDay = plan.tasks.length
+        ? Math.max(...plan.tasks.map((t) => t.day))
+        : 1;
+      const newDay = lastDay + 1;
+      const newDate = new Date(plan.start_date);
+      newDate.setDate(newDate.getDate() + (newDay - 1));
+      const created = await api.tasks.create(plan.id, {
+        day: newDay,
+        week: Math.ceil(newDay / 7),
+        month: Math.ceil(newDay / 30),
+        date: toDateString(newDate),
+        description,
+        pillar: newTaskPillar,
+        hours: newTaskHours,
+        energy: newTaskEnergy,
+        position: plan.tasks.length,
+      });
+      setPlan((p) =>
+        p ? { ...p, tasks: [...p.tasks, created] } : p,
+      );
+      setNewTaskDesc('');
+      setAddTaskOpen(false);
+      toast.success('Task added ✦');
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : 'Failed to add task';
+      toast.error(msg);
+    } finally {
+      setAddingTask(false);
+    }
+  };
+
+  const regeneratePlan = async () => {
+    if (!plan) return;
+    if (!window.confirm('Regenerate tasks for this plan? Current tasks will be replaced.')) {
+      return;
+    }
+    setRegenerating(true);
+    try {
+      const timeframe = plan.timeframe as '1 month' | '3 months' | '6 months' | 'custom';
+      const generated = await api.plans.generate({
+        goal: plan.goal_text,
+        timeframe,
+        energy_focus: 'balanced',
+        pillars: PILLAR_OPTIONS,
+      });
+      // Replace existing tasks with the freshly generated ones.
+      const oldTasks = plan.tasks;
+      const fresh = generated.tasks;
+      for (const t of oldTasks) {
+        try {
+          await api.tasks.remove(plan.id, t.id);
+        } catch {
+          // ignore individual delete failures; new plan will still load
+        }
+      }
+      const created: Task[] = [];
+      for (const t of fresh) {
+        const row = await api.tasks.create(plan.id, {
+          day: t.day,
+          week: t.week,
+          month: t.month,
+          date: t.date,
+          description: t.description,
+          pillar: t.pillar,
+          hours: t.hours,
+          energy: t.energy,
+        });
+        created.push(row);
+      }
+      setPlan((p) => (p ? { ...p, tasks: created } : p));
+      toast.success(`Regenerated ${created.length} tasks ✦`);
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : 'Failed to regenerate plan';
+      toast.error(msg);
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const finishEditing = () => {
+    toast.success('All changes saved ✦');
+    nav('/dashboard');
+  };
+
   if (loading) {
     return (
       <div className="relative min-h-screen pb-20">
@@ -145,24 +306,47 @@ export function PlanEditorPage() {
 
       <main className="max-w-content mx-auto px-4 sm:px-6 py-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div>
+          <div className="min-w-0 flex-1">
             <Link
               to="/dashboard"
               className="font-label text-label-caps uppercase text-primary hover:underline"
             >
               ← Back to dashboard
             </Link>
-            <h1 className="font-display text-headline-lg-mobile md:text-headline-lg font-extrabold text-on-surface mt-1">
-              {plan.title}
-            </h1>
+            {editingTitle ? (
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <input
+                  autoFocus
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitTitleEdit();
+                    if (e.key === 'Escape') cancelTitleEdit();
+                  }}
+                  className="font-display text-headline-lg-mobile md:text-headline-lg font-extrabold text-on-surface bg-white/60 border border-primary/40 rounded px-2 py-1 outline-none w-full max-w-xl"
+                />
+                <Button onClick={commitTitleEdit} loading={savingTitle} className="!py-1.5 !px-3 !text-sm">
+                  Save
+                </Button>
+                <Button variant="ghost" onClick={cancelTitleEdit} className="!py-1.5 !px-3 !text-sm">
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <h1 className="font-display text-headline-lg-mobile md:text-headline-lg font-extrabold text-on-surface mt-1">
+                {plan.title}
+              </h1>
+            )}
             <p className="font-body text-body-md text-on-surface-variant">
               {plan.start_date} → {plan.end_date} · {plan.tasks.length} tasks ·{' '}
               {plan.tasks.filter((t) => t.done).length} done
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline">✎ Edit title</Button>
-            <Button>💾 Save</Button>
+            <Button variant="outline" onClick={startTitleEdit} disabled={editingTitle}>
+              ✎ Edit title
+            </Button>
+            <Button onClick={finishEditing}>✓ Done</Button>
           </div>
         </div>
 
@@ -256,9 +440,13 @@ export function PlanEditorPage() {
               </table>
             </div>
             <div className="p-4 border-t border-outline-variant/30 flex flex-wrap gap-2 justify-between items-center">
-              <div className="flex gap-2">
-                <Button variant="ghost">+ Add task</Button>
-                <Button variant="outline">✦ Regenerate AI</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="ghost" onClick={() => setAddTaskOpen((v) => !v)}>
+                  {addTaskOpen ? '✕ Cancel' : '+ Add task'}
+                </Button>
+                <Button variant="outline" onClick={regeneratePlan} loading={regenerating}>
+                  ✦ Regenerate AI
+                </Button>
               </div>
               <Button
                 onClick={handleDayComplete}
@@ -268,6 +456,79 @@ export function PlanEditorPage() {
                 ✓ Mark day complete
               </Button>
             </div>
+            {addTaskOpen && (
+              <div className="p-4 border-t border-outline-variant/30 bg-white/30 space-y-3">
+                <Input
+                  label="New task"
+                  placeholder="e.g. Read 2 chapters of Foundations of Neuroscience"
+                  value={newTaskDesc}
+                  onChange={(e) => setNewTaskDesc(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') submitNewTask();
+                    if (e.key === 'Escape') setAddTaskOpen(false);
+                  }}
+                  autoFocus
+                />
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-label text-label-caps uppercase text-on-surface-variant mb-1.5">
+                      Pillar
+                    </label>
+                    <select
+                      value={newTaskPillar}
+                      onChange={(e) => setNewTaskPillar(e.target.value as Pillar)}
+                      className="glass-input rounded-lg w-full px-3 py-2.5 font-body text-body-md text-on-surface outline-none"
+                    >
+                      {PILLAR_OPTIONS.map((p) => (
+                        <option key={p} value={p}>
+                          {PILLAR_LABELS[p]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-label text-label-caps uppercase text-on-surface-variant mb-1.5">
+                      Hours
+                    </label>
+                    <input
+                      type="number"
+                      min="0.5"
+                      max="8"
+                      step="0.5"
+                      value={newTaskHours}
+                      onChange={(e) => setNewTaskHours(Number(e.target.value))}
+                      className="glass-input rounded-lg w-full px-3 py-2.5 font-body text-body-md text-on-surface outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-label text-label-caps uppercase text-on-surface-variant mb-1.5">
+                      Energy
+                    </label>
+                    <select
+                      value={newTaskEnergy}
+                      onChange={(e) =>
+                        setNewTaskEnergy(e.target.value as (typeof ENERGY_OPTIONS)[number])
+                      }
+                      className="glass-input rounded-lg w-full px-3 py-2.5 font-body text-body-md text-on-surface outline-none"
+                    >
+                      {ENERGY_OPTIONS.map((e) => (
+                        <option key={e} value={e}>
+                          {e}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" onClick={() => setAddTaskOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={submitNewTask} loading={addingTask}>
+                    ✦ Add task
+                  </Button>
+                </div>
+              </div>
+            )}
           </GlassCard>
         )}
 
@@ -359,13 +620,15 @@ export function PlanEditorPage() {
           </div>
         )}
 
-        {/* Sticky floating Save — per the wireframe, pinned to the base corner */}
+        {/* Sticky floating Done — pinned to the base corner per the wireframe.
+            All changes auto-save on the inline editor, so this is the "I'm
+            done editing" exit button. */}
         <div className="fixed bottom-6 right-6 z-30">
           <Button
             className="shadow-glow-pink animate-pulse-glow"
-            onClick={() => toast.success('Plan saved ✦')}
+            onClick={finishEditing}
           >
-            💾 Save
+            ✓ Done
           </Button>
         </div>
       </main>

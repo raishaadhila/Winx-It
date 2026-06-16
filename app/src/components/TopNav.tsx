@@ -22,7 +22,7 @@ export function TopNav() {
   const handleSignOut = async () => {
     setMenuOpen(false);
     await signOut();
-    nav('/plan/new', { replace: true });
+    nav('/welcome', { replace: true });
   };
 
   return (

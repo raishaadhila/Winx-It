@@ -101,6 +101,68 @@ export function DashboardPage() {
     }
   };
 
+  const markAllComplete = async () => {
+    if (!todayTasks) return;
+    const pending = todayTasks.filter((t) => !t.done);
+    if (pending.length === 0) {
+      setConfetti(true);
+      return;
+    }
+    // Optimistic local flip
+    setTodayTasks((prev) =>
+      prev ? prev.map((t) => (t.done ? t : { ...t, done: true })) : prev,
+    );
+    setConfetti(true);
+    // Fire all completes in parallel; surface any errors
+    const results = await Promise.allSettled(
+      pending.map((t) => api.tasks.complete(t.plan_id, t.id)),
+    );
+    let totalXp = 0;
+    let leveledUp = false;
+    let lastStreak = 0;
+    let lastLevel = 0;
+    let lastTotalXp = 0;
+    let lastFailure: string | null = null;
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.status === 'fulfilled') {
+        totalXp += r.value.xp_awarded;
+        if (r.value.leveled_up) leveledUp = true;
+        lastStreak = r.value.streak;
+        lastLevel = r.value.new_level;
+        lastTotalXp = r.value.new_total_xp;
+      } else {
+        const t = pending[i];
+        const reason =
+          r.reason instanceof ApiError
+            ? r.reason.detail
+            : r.reason instanceof Error
+              ? r.reason.message
+              : 'Could not complete task';
+        lastFailure = reason;
+        // Roll back this task
+        setTodayTasks((prev) =>
+          prev ? prev.map((x) => (x.id === t.id ? { ...x, done: false } : x)) : prev,
+        );
+      }
+    }
+    if (lastTotalXp > 0) {
+      applyLocal({
+        total_xp: lastTotalXp,
+        level: lastLevel,
+        current_streak: lastStreak,
+      });
+    }
+    if (totalXp > 0) {
+      toast.success(
+        leveledUp
+          ? `🎉 Day crushed! Level ${lastLevel}! +${totalXp} XP`
+          : `+${totalXp} XP earned ✦`,
+      );
+    }
+    if (lastFailure) toast.error(lastFailure);
+  };
+
   // Speech bubble message — changes with current stats.
   const bubbleMsg = profile
     ? profile.level >= 5
@@ -266,7 +328,7 @@ export function DashboardPage() {
               )}
               {allDone && (
                 <div className="mt-4 flex justify-end">
-                  <Button onClick={() => setConfetti(true)} className="animate-pulse-glow">
+                  <Button onClick={markAllComplete} className="animate-pulse-glow">
                     🎉 Mark all complete
                   </Button>
                 </div>

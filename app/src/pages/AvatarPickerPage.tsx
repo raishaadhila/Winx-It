@@ -53,7 +53,13 @@ export function AvatarPickerPage() {
       toast.success(`Welcome, ${name || 'Fairy'} ✦`);
       nav('/dashboard');
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.detail : 'Could not save fairy');
+      const msg =
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : 'Could not save fairy';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }

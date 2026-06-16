@@ -19,6 +19,7 @@ function App() {
             <Routes>
               <Route path="/welcome" element={<WelcomePage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<LoginPage initialMode="signup" />} />
               <Route path="/onboarding" element={<AvatarPickerPage />} />
               <Route
                 path="/plan/new"
