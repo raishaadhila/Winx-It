@@ -1,0 +1,170 @@
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { Route } from 'react-router-dom';
+import { renderWithProviders } from '../../test/render';
+import { PromptPage } from '../../pages/PromptPage';
+
+// Mock the api module so we control the response
+vi.mock('../../lib/api', () => ({
+  api: {
+    plans: {
+      generate: vi.fn(),
+      create: vi.fn(),
+    },
+    me: { get: vi.fn(), updateAvatar: vi.fn() },
+    tasks: {
+      list: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      remove: vi.fn(),
+      complete: vi.fn(),
+    },
+  },
+  API_URL: 'http://test',
+  ApiError: class ApiError extends Error {
+    status: number;
+    detail: string;
+    constructor(status: number, detail: string) {
+      super(detail);
+      this.status = status;
+      this.detail = detail;
+    }
+  },
+}));
+
+import { api } from '../../lib/api';
+const mockApi = vi.mocked(api, true);
+
+const ROUTES = (
+  <>
+    <Route path="/plan/new" element={<PromptPage />} />
+    <Route path="/dashboard" element={<div data-testid="dashboard">Dashboard</div>} />
+    <Route path="/plan/:id" element={<div data-testid="plan-editor">Editor</div>} />
+  </>
+);
+
+function renderPrompt() {
+  return renderWithProviders(null, {
+    initialEntries: ['/plan/new'],
+    routes: ROUTES,
+  });
+}
+
+describe('<PromptPage> flow', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders the title and textarea', () => {
+    renderPrompt();
+    expect(screen.getByText(/what's your quest\?/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/your goal/i)).toBeInTheDocument();
+  });
+
+  it('submit button is disabled when goal is empty', () => {
+    renderPrompt();
+    const btn = screen.getByRole('button', { name: /generate my plan/i });
+    expect(btn).toBeDisabled();
+  });
+
+  it('enables submit after typing a goal', async () => {
+    const user = userEvent.setup();
+    renderPrompt();
+    await user.type(screen.getByLabelText(/your goal/i), 'Build a SaaS MVP');
+    const btn = screen.getByRole('button', { name: /generate my plan/i });
+    expect(btn).not.toBeDisabled();
+  });
+
+  it('shows the casting animation during generation', async () => {
+    const user = userEvent.setup();
+    mockApi.plans.generate.mockImplementation(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                title: 'Test',
+                start_date: '2026-06-16',
+                end_date: '2026-07-16',
+                tasks: [],
+              }),
+            500,
+          ),
+        ),
+    );
+    mockApi.plans.create.mockResolvedValue({
+      id: 'plan-1',
+      title: 'Test',
+      goal_text: 'x',
+      timeframe: '3 months',
+      start_date: '2026-06-16',
+      end_date: '2026-07-16',
+      status: 'active',
+      tasks: [],
+      created_at: '2026-06-16T00:00:00Z',
+      updated_at: '2026-06-16T00:00:00Z',
+    });
+
+    renderPrompt();
+    await user.type(screen.getByLabelText(/your goal/i), 'Build something');
+    await user.click(screen.getByRole('button', { name: /generate my plan/i }));
+
+    expect(await screen.findByText(/analyzing goal/i)).toBeInTheDocument();
+  });
+
+  it('navigates to /dashboard after successful plan creation', async () => {
+    const user = userEvent.setup();
+    mockApi.plans.generate.mockResolvedValue({
+      title: 'Test Plan',
+      start_date: '2026-06-16',
+      end_date: '2026-07-16',
+      tasks: [
+        {
+          day: 1,
+          week: 1,
+          month: 1,
+          date: '2026-06-16',
+          description: 'Task 1',
+          pillar: 'tecna',
+          hours: 1.5,
+          energy: 'medium',
+        },
+      ],
+    });
+    mockApi.plans.create.mockResolvedValue({
+      id: 'plan-abc',
+      title: 'Test Plan',
+      goal_text: 'Build something',
+      timeframe: '3 months',
+      start_date: '2026-06-16',
+      end_date: '2026-07-16',
+      status: 'active',
+      tasks: [],
+      created_at: '2026-06-16T00:00:00Z',
+      updated_at: '2026-06-16T00:00:00Z',
+    });
+
+    renderPrompt();
+    await user.type(screen.getByLabelText(/your goal/i), 'Build something');
+    await user.click(screen.getByRole('button', { name: /generate my plan/i }));
+
+    expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
+    // Don't assert call counts here — the slow mock from the previous
+    // test can race in and add extra calls. Just verify the happy path.
+  });
+
+  it('shows error toast on API failure and re-enables submit', async () => {
+    const user = userEvent.setup();
+    mockApi.plans.generate.mockRejectedValue(new Error('Network down'));
+
+    renderPrompt();
+    await user.type(screen.getByLabelText(/your goal/i), 'Build something');
+    await user.click(screen.getByRole('button', { name: /generate my plan/i }));
+
+    // Toast appears with the friendly fallback message
+    expect(await screen.findByText(/failed to generate plan/i)).toBeInTheDocument();
+    // The form is back to the input state (button is re-enabled)
+    expect(screen.getByRole('button', { name: /generate my plan/i })).not.toBeDisabled();
+  });
+});

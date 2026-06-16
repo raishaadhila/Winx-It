@@ -1,0 +1,17 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Env files at the repo root (per-app .gitignores cover app/ and backend/)
+.env
+.env.*
+!.env.example

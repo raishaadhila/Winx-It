@@ -1,0 +1,194 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light only;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100vh;
+  }
+
+  body {
+    @apply font-body text-on-surface antialiased;
+    background: #f8f9ff;
+    overflow-x: hidden;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display;
+    text-shadow: 0 0 1px rgba(255, 183, 233, 0.4),
+      0 0 1px rgba(148, 241, 251, 0.3);
+  }
+
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary/60 ring-offset-2 ring-offset-surface;
+  }
+}
+
+@layer components {
+  .glass {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow:
+      0 8px 32px rgba(133, 75, 118, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+
+  .glass-l3 {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 16px 48px rgba(133, 75, 118, 0.15);
+  }
+
+  .glass-input {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 16px;
+    transition: background 200ms ease;
+  }
+
+  .glass-input:focus-within {
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  .glass-input.invalid {
+    background: rgba(255, 218, 214, 0.5);
+  }
+
+  .btn-primary {
+    @apply relative inline-flex items-center justify-center gap-2 px-6 py-3 font-label text-label-caps uppercase text-on-primary transition-all duration-200;
+    background: #854b76;
+    border-radius: 9999px;
+    box-shadow: 0 4px 16px rgba(133, 75, 118, 0.25);
+  }
+
+  .btn-primary:hover {
+    background: #6a335d;
+    box-shadow: 0 6px 20px rgba(133, 75, 118, 0.35);
+  }
+
+  .btn-outline {
+    @apply relative inline-flex items-center justify-center gap-2 px-6 py-3 font-label text-label-caps uppercase text-primary transition-all duration-200;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(133, 75, 118, 0.3);
+    border-radius: 9999px;
+  }
+
+  .btn-outline:hover {
+    background: rgba(255, 255, 255, 0.7);
+    border-color: rgba(133, 75, 118, 0.5);
+    transform: scale(1.02);
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 font-label text-label-caps uppercase text-on-surface transition-all duration-200;
+    border-radius: 9999px;
+  }
+
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.6);
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 font-label text-label-caps uppercase transition-all duration-200 cursor-pointer select-none;
+    border-radius: 9999px;
+  }
+
+  .chip-active {
+    transform: scale(1.05);
+    box-shadow: 0 0 16px currentColor;
+  }
+
+  .holographic-border {
+    background-image: linear-gradient(
+        rgba(255, 255, 255, 0.7),
+        rgba(255, 255, 255, 0.7)
+      ),
+      linear-gradient(
+        135deg,
+        #ffb7e9 0%,
+        #94f1fb 33%,
+        #b1dd00 66%,
+        #f8b1e2 100%
+      );
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    border: 1px solid transparent;
+  }
+
+  .text-glow-pink {
+    text-shadow: 0 0 8px rgba(255, 183, 233, 0.6),
+      0 0 16px rgba(255, 183, 233, 0.3);
+  }
+
+  .text-glow-blue {
+    text-shadow: 0 0 8px rgba(148, 241, 251, 0.6),
+      0 0 16px rgba(148, 241, 251, 0.3);
+  }
+
+  .text-glow-lime {
+    text-shadow: 0 0 8px rgba(177, 221, 0, 0.6),
+      0 0 16px rgba(177, 221, 0, 0.3);
+  }
+
+  .shimmer-bg {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.4) 0%,
+      rgba(255, 255, 255, 0.8) 50%,
+      rgba(255, 255, 255, 0.4) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+}
+
+@layer utilities {
+  .ambient-gradient {
+    background: radial-gradient(
+        ellipse 80% 50% at 20% 20%,
+        rgba(255, 183, 233, 0.4) 0%,
+        transparent 50%
+      ),
+      radial-gradient(
+        ellipse 60% 40% at 80% 30%,
+        rgba(148, 241, 251, 0.35) 0%,
+        transparent 50%
+      ),
+      radial-gradient(
+        ellipse 70% 50% at 50% 80%,
+        rgba(177, 221, 0, 0.25) 0%,
+        transparent 50%
+      ),
+      #f8f9ff;
+  }
+
+  .bg-fairy-glow {
+    background: radial-gradient(
+      circle at center,
+      rgba(255, 183, 233, 0.5) 0%,
+      transparent 70%
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
