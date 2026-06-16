@@ -152,7 +152,7 @@ describe('<PromptPage> flow', () => {
     expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
   });
 
-  it('passes attachments and custom_prompt to the API', async () => {
+  it('passes attachments to the API', async () => {
     const user = userEvent.setup();
     mockApi.plans.generate.mockResolvedValue({
       title: 'X', start_date: '2026-06-16', end_date: '2026-07-16', tasks: [],
@@ -165,9 +165,8 @@ describe('<PromptPage> flow', () => {
 
     renderPrompt();
     await user.type(screen.getByLabelText(/your goal/i), 'Build X');
-    await user.type(screen.getByLabelText(/custom prompt/i), 'focus on weekdays');
 
-    // Simulate adding a link via the UI
+    // Add a link via the UI
     await user.click(screen.getByRole('button', { name: /add link/i }));
     const linkInput = screen.getByPlaceholderText(/https:\/\/example\.com/);
     await user.type(linkInput, 'github.com/test');
@@ -175,13 +174,13 @@ describe('<PromptPage> flow', () => {
 
     await user.click(screen.getByRole('button', { name: /generate my plan/i }));
 
-    // The generate call should include the attachment and custom_prompt
+    // The generate call should include the attachment
     await waitFor(() => {
       const call = mockApi.plans.generate.mock.calls[0][0];
       expect(call.attachments).toBeDefined();
-      expect(call.attachments[0].kind).toBe('link');
-      expect(call.attachments[0].value).toContain('github.com');
-      expect(call.custom_prompt).toBe('focus on weekdays');
+      const atts = call.attachments as Array<{ kind: string; value: string }>;
+      expect(atts[0].kind).toBe('link');
+      expect(atts[0].value).toContain('github.com');
     });
   });
 

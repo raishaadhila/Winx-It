@@ -32,7 +32,6 @@ export function PromptPage() {
   const nav = useNavigate();
   const toast = useToast();
   const [goal, setGoal] = useState('');
-  const [customPrompt, setCustomPrompt] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [timeframe, setTimeframe] = useState('3 months');
   const [energy, setEnergy] = useState('deep');
@@ -86,7 +85,6 @@ export function PromptPage() {
         energy_focus: ENERGY_MAP[energy] ?? 'balanced',
         pillars: Array.from(pillars),
         attachments: attachments.length > 0 ? attachments : undefined,
-        custom_prompt: customPrompt.trim() || undefined,
       });
 
       setSaving(true);
@@ -151,17 +149,6 @@ export function PromptPage() {
               <AttachmentsPanel
                 attachments={attachments}
                 onChange={setAttachments}
-              />
-
-              {/* Custom prompt: extra column the user can use to add
-                  constraints, tone, persona, examples — anything the AI
-                  should know beyond the goal itself. */}
-              <Textarea
-                label="Custom prompt (optional)"
-                placeholder={`E.g. "Focus on weekdays only", "Use metric units", "Treat me as a beginner in X"…`}
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                rows={3}
               />
 
               <div>
