@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import me, plans, tasks
+from app.api import anon_plans, me, plans, tasks
 from app.core.config import settings
 
 
@@ -19,6 +19,7 @@ app = FastAPI(
     description="Backend for the Winx It! gamified productivity app.",
     lifespan=lifespan,
 )
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,3 +46,4 @@ def health():
 app.include_router(me.router)
 app.include_router(plans.router)
 app.include_router(tasks.router)
+app.include_router(anon_plans.router)

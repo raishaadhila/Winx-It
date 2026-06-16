@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { type Session, type User } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { clearTransferFlag, transferLocalPlansToCloud } from '../lib/transfer';
 
 type AuthState = {
   session: Session | null;
@@ -33,6 +34,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      // SIGNED_IN covers fresh sign-in, sign-up, and OAuth. On any of
+      // those, migrate local plans the user built in guest mode to their
+      // Supabase account.
+      if (_event === 'SIGNED_IN' && newSession) {
+        transferLocalPlansToCloud().catch((e) =>
+          console.warn('local plan transfer failed:', e),
+        );
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -68,6 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();
+    // New sign-in on the same device should re-evaluate the local plans —
+    // they're tied to a device, not an account.
+    clearTransferFlag();
     setSession(null);
   };
 

@@ -110,7 +110,13 @@ export const api = {
       return request<Plan>('GET', `/api/plans/${id}`);
     },
     generate: async (body: PlanGenerateRequest): Promise<GeneratedPlan> => {
-      if (!(await isAuthed())) return local.plans.generate(body);
+      // Guest mode hits the public /api/anon/plans/generate endpoint —
+      // same LLM, no Supabase write. Authed users go through the normal
+      // /api/plans/generate endpoint, which saves to Supabase and uses
+      // their JWT.
+      if (!(await isAuthed())) {
+        return request<GeneratedPlan>('POST', '/api/anon/plans/generate', body);
+      }
       return request<GeneratedPlan>('POST', '/api/plans/generate', body);
     },
     create: async (body: PlanCreate): Promise<Plan> => {

@@ -62,7 +62,8 @@ class PlanGenerateRequest(BaseModel):
     custom_days: int | None = Field(None, ge=1, le=365)
     energy_focus: Literal["deep", "physical", "creative", "balanced"] = "balanced"
     pillars: list[Pillar] = Field(
-        default_factory=lambda: ["tecna", "flora", "musa", "bloom", "stella"]
+        default_factory=lambda: ["tecna", "flora", "musa", "bloom", "stella"],
+        min_length=1,
     )
     attachments: list[Attachment] | None = None
     custom_prompt: str | None = Field(None, max_length=4000)

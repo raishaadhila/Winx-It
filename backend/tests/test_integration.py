@@ -84,6 +84,7 @@ class TestOpenAPI:
             "/api/plans/{plan_id}/tasks",
             "/api/plans/{plan_id}/tasks/{task_id}",
             "/api/plans/{plan_id}/tasks/{task_id}/complete",
+            "/api/anon/plans/generate",
         }
         assert set(paths.keys()) == expected
 

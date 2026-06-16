@@ -3,11 +3,13 @@
  * is not configured). Mirrors the backend's API shape so pages can call
  * `api.foo()` and get the same return type whether the data lives in
  * localStorage or in Postgres.
+ *
+ * Note: plan GENERATION is no longer handled here. The LLM is the only
+ * source of truth — guests hit POST /api/anon/plans/generate, authed
+ * users hit POST /api/plans/generate. Both return the same GeneratedPlan
+ * which the caller then persists via `plans.create()`.
  */
 import type {
-  GeneratedPlan,
-  GeneratedTask,
-  Pillar,
   Plan,
   PlanCreate,
   PlanGenerateRequest,
@@ -205,8 +207,12 @@ export const local = {
       if (!plan) throw new Error('Plan not found');
       return plan;
     },
-    generate: async (req: PlanGenerateRequest): Promise<GeneratedPlan> =>
-      generateLocalPlan(req),
+    generate: async (_req: PlanGenerateRequest): Promise<never> => {
+      throw new Error(
+        'local.plans.generate is no longer supported. Use api.plans.generate — ' +
+        'guests hit /api/anon/plans/generate, authed users hit /api/plans/generate.'
+      );
+    },
     create: async (body: PlanCreate): Promise<Plan> => {
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
@@ -333,95 +339,3 @@ export const local = {
   },
 };
 
-// ---------- Local AI planner (mirrors backend _stub_plan) ----------
-const DESCS: Record<Pillar, string[]> = {
-  tecna: [
-    'Ship a feature',
-    'Review PRs',
-    'Refactor module',
-    'Run benchmarks',
-    'Write tests',
-    'Pair on architecture',
-  ],
-  flora: [
-    'Read research module',
-    'Cardio session',
-    'Stretch + breathe',
-    'Brain imaging notes',
-    'Hydration check',
-    'Sleep routine',
-  ],
-  musa: [
-    'Read English journal',
-    'Listen to podcast',
-    'Write summary',
-    'Vocab drill',
-    'Speaking practice',
-    'Watch lecture',
-  ],
-  bloom: [
-    'Outreach sequence',
-    'Ship launch update',
-    'User interview',
-    'Marketing post',
-    'Cold email batch',
-    'Metrics review',
-  ],
-  stella: [
-    'Cycle 30min',
-    'Swim laps',
-    'Meditate 10min',
-    'Walk + reflect',
-    'Gym session',
-    'Yoga flow',
-  ],
-};
-
-function daysFor(req: PlanGenerateRequest): number {
-  if (req.timeframe === '1 month') return 30;
-  if (req.timeframe === '3 months') return 90;
-  if (req.timeframe === '6 months') return 180;
-  if (req.custom_days) return Math.min(req.custom_days, 365);
-  return 90;
-}
-
-function generateLocalPlan(req: PlanGenerateRequest): GeneratedPlan {
-  const days = daysFor(req);
-  const start = new Date();
-  const end = new Date(start.getTime() + (days - 1) * 86400000);
-  const pillars = req.pillars.length ? req.pillars : (['tecna', 'flora'] as Pillar[]);
-
-  const tasks: GeneratedTask[] = [];
-  const stubDays = Math.min(days, 21); // 3 weeks of seeded tasks (matches backend)
-  for (let d = 1; d <= stubDays; d++) {
-    const pillar = pillars[(d - 1) % pillars.length];
-    const descs = DESCS[pillar];
-    const desc = descs[(d - 1) % descs.length];
-    const hours = d % 3 === 0 ? 2 : d % 2 === 0 ? 1.5 : 0.75;
-    const energy: GeneratedTask['energy'] = d % 5 === 0 ? 'high' : d % 2 === 0 ? 'medium' : 'low';
-    const date = new Date(start.getTime() + (d - 1) * 86400000);
-    tasks.push({
-      day: d,
-      week: Math.ceil(d / 7),
-      month: Math.ceil(d / 30),
-      date: date.toISOString().slice(0, 10),
-      description: desc,
-      pillar,
-      hours,
-      energy,
-    });
-  }
-
-  const titleSeed = req.goal.split('.')[0].slice(0, 60).trim() || 'New Quest';
-  const title = titleSeed
-    .split(' ')
-    .map((w) => (w.length > 0 ? w[0].toUpperCase() + w.slice(1) : w))
-    .join(' ');
-
-  return {
-    title,
-    start_date: start.toISOString().slice(0, 10),
-    end_date: end.toISOString().slice(0, 10),
-    tasks,
-  };
-}
