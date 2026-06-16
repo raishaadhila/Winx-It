@@ -210,4 +210,33 @@ describe('<PromptPage> flow', () => {
     // The form is back to the input state (button is re-enabled)
     expect(screen.getByRole('button', { name: /generate my plan/i })).not.toBeDisabled();
   });
+
+  it('warns the user when the server returned a fallback stub (no LLM key)', async () => {
+    const user = userEvent.setup();
+    mockApi.plans.generate.mockResolvedValue({
+      title: 'Generic Plan',
+      start_date: '2026-06-16',
+      end_date: '2026-09-13',
+      tasks: [
+        {
+          day: 1, week: 1, month: 1, date: '2026-06-16',
+          description: 'Do a thing', pillar: 'tecna', hours: 1, energy: 'medium',
+        },
+      ],
+      fallback_stub: true,
+    });
+    mockApi.plans.create.mockResolvedValue({
+      id: 'plan-x', title: 'Generic Plan', goal_text: 'g', timeframe: '3 months',
+      start_date: '2026-06-16', end_date: '2026-09-13', status: 'active',
+      tasks: [], created_at: '2026-06-16T00:00:00Z', updated_at: '2026-06-16T00:00:00Z',
+    });
+
+    renderPrompt();
+    await user.type(screen.getByLabelText(/your goal/i), 'Build something');
+    await user.click(screen.getByRole('button', { name: /generate my plan/i }));
+
+    expect(
+      await screen.findByText(/generic stub|NVIDIA_API_KEY/i),
+    ).toBeInTheDocument();
+  });
 });

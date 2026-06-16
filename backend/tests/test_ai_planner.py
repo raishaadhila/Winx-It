@@ -124,6 +124,77 @@ class TestStubFallback:
             pillars_seen = {t.pillar for t in plan.tasks}
             assert pillars_seen == {"tecna", "bloom", "stella"}
 
+    def test_stub_marks_fallback_flag(self, sample_request, monkeypatch):
+        """The stub plan must be flagged so the UI can warn the user that
+        the LLM was unavailable and the plan is generic."""
+        from app.services import ai_planner
+
+        for _ in _patch_nvidia(monkeypatch, api_key=""):
+            plan = ai_planner.generate_plan(sample_request)
+            assert plan.fallback_stub is True
+
+    def test_real_llm_marks_fallback_false(self, sample_request, monkeypatch):
+        """When a real LLM call succeeds, the response must NOT be flagged
+        as a fallback."""
+        from app.services import ai_planner
+
+        # Build a fake "successful" OpenAI response
+        fake_completion = MagicMock()
+        fake_completion.choices = [MagicMock()]
+        fake_completion.choices[0].message.content = (
+            '{"title":"Real Plan","start_date":"2026-06-16",'
+            '"end_date":"2026-09-13","tasks":[]}'
+        )
+        for _ in _patch_nvidia(monkeypatch, api_key="nvapi-real"):
+            with patch("app.services.ai_planner.OpenAI") as mock_client:
+                mock_client.return_value.chat.completions.create.return_value = fake_completion
+                plan = ai_planner.generate_plan(sample_request)
+        assert plan.fallback_stub is False
+        assert plan.title == "Real Plan"
+
+
+class TestAnonEndpointFallback:
+    """The anon endpoint surfaces clear 503/502 errors when the LLM is
+    unavailable or returns garbage — never a silent stub."""
+
+    def test_503_when_nvidia_key_missing(self, client, monkeypatch):
+        for _ in _patch_nvidia(monkeypatch, api_key=""):
+            r = client.post(
+                "/api/anon/plans/generate",
+                json={
+                    "goal": "Build a thing",
+                    "timeframe": "3 months",
+                    "energy_focus": "balanced",
+                    "pillars": ["tecna"],
+                },
+            )
+        assert r.status_code == 503
+        assert "NVIDIA_API_KEY" in r.json()["detail"]
+
+    def test_503_when_nvidia_rejects_key(self, client, monkeypatch):
+        from openai import PermissionDeniedError
+
+        for _ in _patch_nvidia(monkeypatch, api_key="nvapi-bad"):
+            with patch("app.api.anon_plans.OpenAI") as mock_client:
+                mock_client.return_value.chat.completions.create.side_effect = (
+                    PermissionDeniedError(
+                        "nope",
+                        response=MagicMock(status_code=403),
+                        body={"detail": "Authorization failed"},
+                    )
+                )
+                r = client.post(
+                    "/api/anon/plans/generate",
+                    json={
+                        "goal": "Build a thing",
+                        "timeframe": "3 months",
+                        "energy_focus": "balanced",
+                        "pillars": ["tecna"],
+                    },
+                )
+        assert r.status_code == 503
+        assert "NVIDIA_API_KEY" in r.json()["detail"]
+
 
 # ---------- Real NVIDIA NIM call (with mocked OpenAI client) ----------
 

@@ -151,6 +151,9 @@ export type GeneratedPlan = {
   start_date: string;
   end_date: string;
   tasks: GeneratedTask[];
+  /** True when the LLM was unavailable and the server returned a generic
+   *  stub. UI can show a banner warning that the plan is not personalized. */
+  fallback_stub?: boolean;
 };
 
 export type PlanCreate = {

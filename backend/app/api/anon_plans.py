@@ -14,7 +14,13 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from openai import OpenAI
+from openai import (
+    APIConnectionError,
+    AuthenticationError,
+    OpenAI,
+    PermissionDeniedError,
+    RateLimitError,
+)
 
 from app.core.config import settings
 from app.limiter import anon_plans_limiter
@@ -117,6 +123,31 @@ def generate_anon_plan(req: PlanGenerateRequest, request: Request):
         # LLM not configured on server
         logger.error("anon plan generation failed (no key): %s", e)
         raise HTTPException(status_code=503, detail=f"LLM not available: {e}")
+    except PermissionDeniedError as e:
+        # NVIDIA rejected the key (revoked, expired, wrong account)
+        logger.error("anon plan generation failed (auth): %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail="LLM key rejected by NVIDIA — check NVIDIA_API_KEY in the server .env",
+        )
+    except AuthenticationError as e:
+        logger.error("anon plan generation failed (auth): %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail="LLM authentication failed — check NVIDIA_API_KEY in the server .env",
+        )
+    except APIConnectionError as e:
+        logger.error("anon plan generation failed (connection): %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Could not reach the LLM provider — check your network and try again",
+        )
+    except RateLimitError as e:
+        logger.warning("anon plan generation rate-limited by LLM: %s", e)
+        raise HTTPException(
+            status_code=429,
+            detail="LLM provider is rate-limiting us — try again in a few minutes",
+        )
     except (ValueError, json.JSONDecodeError) as e:
         # LLM returned something we couldn't parse
         logger.error("anon plan generation failed (parse): %s", e)

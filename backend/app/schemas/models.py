@@ -97,6 +97,9 @@ class GeneratedPlan(BaseModel):
     start_date: Date
     end_date: Date
     tasks: list[TaskSpec]
+    """True when the LLM was unavailable and we returned the dev stub
+    instead. UI can surface a banner explaining the plan is generic."""
+    fallback_stub: bool = False
 
 
 class PlanCreate(BaseModel):

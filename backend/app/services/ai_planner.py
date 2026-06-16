@@ -13,6 +13,7 @@ context — not just the goal string.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import date, timedelta
 
 from openai import OpenAI
@@ -20,6 +21,8 @@ from openai import OpenAI
 from app.core.config import settings
 from app.schemas.models import GeneratedPlan, PlanGenerateRequest, Pillar
 from app.services.enrichment import enrich_attachments
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """\
 You are Winx It!'s quest architect. You transform a free-form personal goal
@@ -101,8 +104,15 @@ def generate_plan(req: PlanGenerateRequest) -> GeneratedPlan:
 
     if not settings.nvidia_api_key:
         # Dev fallback: produce a small but realistic stub so the UI flows
-        # when the operator hasn't set NVIDIA_API_KEY yet.
-        return _stub_plan(req, start, days)
+        # when the operator hasn't set NVIDIA_API_KEY yet. We flag it in
+        # the response so the frontend can warn the user.
+        logger.warning(
+            "NVIDIA_API_KEY is not set — returning generic stub plan for goal=%r",
+            req.goal[:80],
+        )
+        plan = _stub_plan(req, start, days)
+        plan.fallback_stub = True
+        return plan
 
     # OpenAI-compatible client pointed at the NVIDIA NIM endpoint.
     client = OpenAI(
@@ -126,7 +136,9 @@ def generate_plan(req: PlanGenerateRequest) -> GeneratedPlan:
 
     raw = completion.choices[0].message.content
     data = json.loads(raw)
-    return GeneratedPlan.model_validate(data)
+    plan = GeneratedPlan.model_validate(data)
+    plan.fallback_stub = False
+    return plan
 
 
 def _stub_plan(req: PlanGenerateRequest, start: date, days: int) -> GeneratedPlan:
@@ -159,4 +171,5 @@ def _stub_plan(req: PlanGenerateRequest, start: date, days: int) -> GeneratedPla
         start_date=start,
         end_date=start + timedelta(days=days - 1),
         tasks=tasks,
+        fallback_stub=False,  # set to True by the caller when no LLM key
     )

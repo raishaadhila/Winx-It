@@ -11,9 +11,9 @@ export type Toast = {
 };
 
 type ToastCtx = {
-  show: (message: string, variant?: ToastVariant) => void;
-  success: (message: string) => void;
-  error: (message: string) => void;
+  show: (message: string, variant?: ToastVariant, durationMs?: number) => void;
+  success: (message: string, durationMs?: number) => void;
+  error: (message: string, durationMs?: number) => void;
 };
 
 const Ctx = createContext<ToastCtx | null>(null);
@@ -38,18 +38,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const show = useCallback(
-    (message: string, variant: ToastVariant = 'info') => {
+    (message: string, variant: ToastVariant = 'info', durationMs = 4000) => {
       const id = Date.now() + Math.random();
       setToasts((t) => [...t, { id, message, variant }]);
-      setTimeout(() => dismiss(id), 4000);
+      setTimeout(() => dismiss(id), durationMs);
     },
     [dismiss],
   );
 
   const value: ToastCtx = {
     show,
-    success: (m) => show(m, 'success'),
-    error: (m) => show(m, 'error'),
+    success: (m, d) => show(m, 'success', d),
+    error: (m, d) => show(m, 'error', d),
   };
 
   return (

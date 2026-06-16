@@ -111,7 +111,15 @@ export function PromptPage() {
         tasks: generated.tasks,
       });
 
-      toast.success(`Plan created with ${created.tasks.length} tasks ✦`);
+      const taskCount = created.tasks.length;
+      if (generated.fallback_stub) {
+        toast.error(
+          `Plan generated (${taskCount} tasks) — but the server returned a generic stub because the LLM key is missing. Set NVIDIA_API_KEY in backend/.env to get a personalized plan.`,
+          { duration: 9000 },
+        );
+      } else {
+        toast.success(`Plan created with ${taskCount} tasks ✦`);
+      }
       nav('/dashboard');
     } catch (err) {
       setGenerating(false);
