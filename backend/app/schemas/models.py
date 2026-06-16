@@ -17,6 +17,16 @@ Fairy = Literal["bloom", "stella", "flora", "musa", "tecna", "layla"]
 Accent = Literal["pink", "blue", "lime", "purple", "yellow"]
 Energy = Literal["low", "medium", "high"]
 PlanStatus = Literal["active", "paused", "completed", "archived"]
+AttachmentKind = Literal["image", "file", "link"]
+
+
+class Attachment(BaseModel):
+    id: str
+    kind: AttachmentKind
+    name: str
+    value: str
+    size: int | None = None
+    mime: str | None = None
 
 
 # --- Profile / Me -----------------------------------------------------------
@@ -54,6 +64,8 @@ class PlanGenerateRequest(BaseModel):
     pillars: list[Pillar] = Field(
         default_factory=lambda: ["tecna", "flora", "musa", "bloom", "stella"]
     )
+    attachments: list[Attachment] | None = None
+    custom_prompt: str | None = Field(None, max_length=4000)
 
 
 class TaskSpec(BaseModel):

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route } from 'react-router-dom';
 import { renderWithProviders } from '../../test/render';
@@ -150,8 +150,52 @@ describe('<PromptPage> flow', () => {
     await user.click(screen.getByRole('button', { name: /generate my plan/i }));
 
     expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
-    // Don't assert call counts here — the slow mock from the previous
-    // test can race in and add extra calls. Just verify the happy path.
+  });
+
+  it('passes attachments and custom_prompt to the API', async () => {
+    const user = userEvent.setup();
+    mockApi.plans.generate.mockResolvedValue({
+      title: 'X', start_date: '2026-06-16', end_date: '2026-07-16', tasks: [],
+    });
+    mockApi.plans.create.mockResolvedValue({
+      id: 'plan-abc', title: 'X', goal_text: 'g', timeframe: '3 months',
+      start_date: '2026-06-16', end_date: '2026-07-16', status: 'active',
+      tasks: [], created_at: '2026-06-16T00:00:00Z', updated_at: '2026-06-16T00:00:00Z',
+    });
+
+    renderPrompt();
+    await user.type(screen.getByLabelText(/your goal/i), 'Build X');
+    await user.type(screen.getByLabelText(/custom prompt/i), 'focus on weekdays');
+
+    // Simulate adding a link via the UI
+    await user.click(screen.getByRole('button', { name: /add link/i }));
+    const linkInput = screen.getByPlaceholderText(/https:\/\/example\.com/);
+    await user.type(linkInput, 'github.com/test');
+    await user.keyboard('{Enter}');
+
+    await user.click(screen.getByRole('button', { name: /generate my plan/i }));
+
+    // The generate call should include the attachment and custom_prompt
+    await waitFor(() => {
+      const call = mockApi.plans.generate.mock.calls[0][0];
+      expect(call.attachments).toBeDefined();
+      expect(call.attachments[0].kind).toBe('link');
+      expect(call.attachments[0].value).toContain('github.com');
+      expect(call.custom_prompt).toBe('focus on weekdays');
+    });
+  });
+
+  it('auto-detects URLs pasted into the goal textarea', async () => {
+    const user = userEvent.setup();
+    renderPrompt();
+    // Type a goal containing a URL — should be promoted to an attachment
+    await user.type(
+      screen.getByLabelText(/your goal/i),
+      'Read this https://example.com/article please',
+    );
+
+    // The URL should appear as a chip
+    expect(await screen.findByText('https://example.com/article')).toBeInTheDocument();
   });
 
   it('shows error toast on API failure and re-enables submit', async () => {

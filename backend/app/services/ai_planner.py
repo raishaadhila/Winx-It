@@ -35,14 +35,34 @@ Rules:
 
 def _user_prompt(req: PlanGenerateRequest, days: int) -> str:
     pillars = ", ".join(req.pillars)
-    return (
-        f"GOAL: {req.goal}\n"
-        f"TIMEFRAME: {req.timeframe} ({days} days, starting {date.today().isoformat()})\n"
-        f"ENERGY FOCUS: {req.energy_focus}\n"
-        f"PILLARS TO COVER: {pillars}\n\n"
-        f"Generate a complete {days}-day quest plan. Each task must include day, week, "
+    parts: list[str] = [
+        f"GOAL: {req.goal}",
+        f"TIMEFRAME: {req.timeframe} ({days} days, starting {date.today().isoformat()})",
+        f"ENERGY FOCUS: {req.energy_focus}",
+        f"PILLARS TO COVER: {pillars}",
+    ]
+    if req.attachments:
+        att_lines = ["\nATTACHMENTS (consider these as supporting context):"]
+        for a in req.attachments:
+            if a.kind == "link":
+                att_lines.append(f"- 🔗 {a.name}")
+            elif a.kind == "image":
+                att_lines.append(f"- 🖼️ image: {a.name} ({a.mime or 'image'})")
+            else:
+                att_lines.append(f"- 📄 file: {a.name} ({a.mime or 'file'})")
+        # If any links, ask the model to fetch them
+        if any(a.kind == "link" for a in req.attachments):
+            att_lines.append(
+                "\nFor link attachments, you may fetch their content to inform the plan."
+            )
+        parts.append("\n".join(att_lines))
+    if req.custom_prompt:
+        parts.append(f"\nCUSTOM PROMPT (extra instructions from the user):\n{req.custom_prompt}")
+    parts.append(
+        f"\nGenerate a complete {days}-day quest plan. Each task must include day, week, "
         f"month, date, description, pillar, hours, energy."
     )
+    return "\n".join(parts)
 
 
 def _days_for(req: PlanGenerateRequest) -> int:

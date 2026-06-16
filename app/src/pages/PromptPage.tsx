@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AmbientBackground } from '../components/AmbientBackground';
+import { AttachmentsPanel, extractUrls } from '../components/AttachmentsPanel';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { GlassCard } from '../components/GlassCard';
-import { ResourcesButton } from '../components/ResourcesButton';
 import { Textarea } from '../components/Textarea';
 import { TopNav } from '../components/TopNav';
 import { useToast } from '../contexts/ToastContext';
 import { api, ApiError } from '../lib/api';
 import { ENERGIES, TIMEFRAMES, type PillarId as Pillar, PILLAR_LABELS } from '../data/mock';
+import type { Attachment } from '../lib/types';
 
 const PILLAR_OPTIONS: Pillar[] = ['tecna', 'flora', 'musa', 'bloom', 'stella'];
 const PILLAR_COLORS: Record<Pillar, 'pink' | 'blue' | 'lime' | 'purple' | 'yellow'> = {
@@ -31,12 +32,28 @@ export function PromptPage() {
   const nav = useNavigate();
   const toast = useToast();
   const [goal, setGoal] = useState('');
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [timeframe, setTimeframe] = useState('3 months');
   const [energy, setEnergy] = useState('deep');
   const [pillars, setPillars] = useState<Set<Pillar>>(new Set(['tecna', 'flora']));
   const [generating, setGenerating] = useState(false);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  // Auto-detect URLs pasted into the goal textarea → promote them to
+  // attachments. This satisfies the "users can paste link" flow.
+  useEffect(() => {
+    const urls = extractUrls(goal);
+    if (urls.length === 0) return;
+    setAttachments((prev) => {
+      const existing = new Set(prev.map((a) => a.value));
+      const additions: Attachment[] = urls
+        .filter((u) => !existing.has(u))
+        .map((u) => ({ id: crypto.randomUUID(), kind: 'link', name: u, value: u }));
+      return additions.length ? [...prev, ...additions] : prev;
+    });
+  }, [goal]);
 
   const togglePillar = (p: Pillar) => {
     const next = new Set(pillars);
@@ -68,6 +85,8 @@ export function PromptPage() {
         custom_days: customDays,
         energy_focus: ENERGY_MAP[energy] ?? 'balanced',
         pillars: Array.from(pillars),
+        attachments: attachments.length > 0 ? attachments : undefined,
+        custom_prompt: customPrompt.trim() || undefined,
       });
 
       setSaving(true);
@@ -112,35 +131,38 @@ export function PromptPage() {
 
           {!generating ? (
             <div className="space-y-6">
-              <div className="flex items-end justify-between gap-3">
-                <div className="flex-1">
-                  <Textarea
-                    label="Your goal"
-                    placeholder={`E.g. "Set up Month 2 focusing on Medical Neuroscience modules and AI Brain Tumor dataset cleanups."`}
-                    value={goal}
-                    onChange={(e) => setGoal(e.target.value)}
-                    onKeyDown={(e) => {
-                      // Per the wireframe: Cmd/Ctrl+Enter triggers the pipeline.
-                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                        e.preventDefault();
-                        if (goal.trim()) generate();
-                      }
-                    }}
-                    rows={6}
-                  />
-                </div>
-                <ResourcesButton
-                  onPick={(r) => {
-                    // Append the resource as a hint for the AI planner.
-                    setGoal((g) =>
-                      g
-                        ? `${g}\n\n[Attached: ${r.name} — ${r.preview}]`
-                        : `Use ${r.name} (${r.preview}) to help me `,
-                    );
-                    toast.success(`Attached ${r.name}`);
-                  }}
-                />
-              </div>
+              <Textarea
+                label="Your goal"
+                placeholder={`E.g. "Set up Month 2 focusing on Medical Neuroscience modules and AI Brain Tumor dataset cleanups."`}
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                onKeyDown={(e) => {
+                  // Per the wireframe: Cmd/Ctrl+Enter triggers the pipeline.
+                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    if (goal.trim()) generate();
+                  }
+                }}
+                rows={6}
+              />
+
+              {/* Attachments: file upload + link paste (URLs in goal are
+                  auto-detected by the useEffect above) */}
+              <AttachmentsPanel
+                attachments={attachments}
+                onChange={setAttachments}
+              />
+
+              {/* Custom prompt: extra column the user can use to add
+                  constraints, tone, persona, examples — anything the AI
+                  should know beyond the goal itself. */}
+              <Textarea
+                label="Custom prompt (optional)"
+                placeholder={`E.g. "Focus on weekdays only", "Use metric units", "Treat me as a beginner in X"…`}
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                rows={3}
+              />
 
               <div>
                 <label className="block font-label text-label-caps uppercase text-on-surface-variant mb-2">

@@ -106,12 +106,31 @@ export type TaskCompleteResponse = {
   streak: number;
 };
 
+export type AttachmentKind = 'image' | 'file' | 'link';
+
+export type Attachment = {
+  id: string;
+  kind: AttachmentKind;
+  /** Display name (filename or URL) */
+  name: string;
+  /** For links: the full URL. For files/images: a data URL or text content. */
+  value: string;
+  /** Optional size in bytes (no enforced limit) */
+  size?: number;
+  /** Optional mime type (for files/images) */
+  mime?: string;
+};
+
 export type PlanGenerateRequest = {
   goal: string;
   timeframe: '1 month' | '3 months' | '6 months' | 'custom';
   custom_days?: number;
   energy_focus: 'deep' | 'physical' | 'creative' | 'balanced';
   pillars: Pillar[];
+  /** Files / images / links the user attached. */
+  attachments?: Attachment[];
+  /** Additional AI context (optional). */
+  custom_prompt?: string;
 };
 
 export type GeneratedTask = {
