@@ -3,7 +3,6 @@
 <p align="center">
   <img src="https://readme-typing-svg.demolab.com?font=Bricolage+Grotesque&weight=800&size=42&duration=3000&pause=1000&color=854B76&center=true&vCenter=true&multiline=true&repeat=false&width=900&height=120&lines=Transform+your+goals+into+magic." alt="Typing SVG" />
 </p>
-
 <p align="center">
   <em>A hyper-structured, gamified productivity SaaS where Type A builders transform goals into magical quests.</em>
 </p>
