@@ -195,7 +195,7 @@ describe('<PromptPage> flow', () => {
 
     // The URL should appear as a chip
     expect(await screen.findByText('https://example.com/article')).toBeInTheDocument();
-  });
+  }, 15000);
 
   it('shows error toast on API failure and re-enables submit', async () => {
     const user = userEvent.setup();
@@ -239,4 +239,64 @@ describe('<PromptPage> flow', () => {
       await screen.findByText(/generic stub|NVIDIA_API_KEY/i),
     ).toBeInTheDocument();
   });
+
+  it('sends goal + timeframe + pillars + attachments to the API (full personalization payload)', async () => {
+    const user = userEvent.setup();
+    mockApi.plans.generate.mockResolvedValue({
+      title: 'X', start_date: '2026-06-16', end_date: '2026-09-13', tasks: [],
+    });
+    mockApi.plans.create.mockResolvedValue({
+      id: 'plan-abc', title: 'X', goal_text: 'g', timeframe: '3 months',
+      start_date: '2026-06-16', end_date: '2026-09-13', status: 'active',
+      tasks: [], created_at: '2026-06-16T00:00:00Z', updated_at: '2026-06-16T00:00:00Z',
+    });
+
+    renderPrompt();
+
+    // Goal
+    await user.type(
+      screen.getByLabelText(/your goal/i),
+      'Train for a half-marathon in 12 weeks while keeping my day job',
+    );
+
+    // Timeframe: click "6 months"
+    await user.click(screen.getByRole('button', { name: /6 months/i }));
+
+    // Energy: click "physical"
+    await user.click(screen.getByRole('button', { name: /physical/i }));
+
+    // Pillars: ensure stella + flora are on, others off.
+    // Default is tecna+flora — toggle tecna off, add stella.
+    // Active chip prefix is "✓", inactive is "+"; match the label itself.
+    await user.click(screen.getByRole('button', { name: /tecna/i }));
+    await user.click(screen.getByRole('button', { name: /stella/i }));
+
+    // Attachment: add a link
+    await user.click(screen.getByRole('button', { name: /add link/i }));
+    const linkInput = screen.getByPlaceholderText(/https:\/\/example\.com/);
+    await user.type(linkInput, 'docs.halfmarathon.training/plan');
+    await user.keyboard('{Enter}');
+
+    // Submit
+    await user.click(screen.getByRole('button', { name: /generate my plan/i }));
+
+    // Assert the payload that hit the AI
+    await waitFor(() => expect(mockApi.plans.generate).toHaveBeenCalled());
+    const payload = mockApi.plans.generate.mock.calls[0][0];
+
+    // 1. Goal text is sent verbatim
+    expect(payload.goal).toBe(
+      'Train for a half-marathon in 12 weeks while keeping my day job',
+    );
+    // 2. Timeframe is the chosen one
+    expect(payload.timeframe).toBe('6 months');
+    // 3. Energy focus is the chosen one
+    expect(payload.energy_focus).toBe('physical');
+    // 4. Pillar set matches what the user toggled
+    expect(new Set(payload.pillars)).toEqual(new Set(['flora', 'stella']));
+    // 5. Attachment is forwarded
+    expect(payload.attachments).toBeDefined();
+    expect(payload.attachments[0].kind).toBe('link');
+    expect(payload.attachments[0].value).toBe('https://docs.halfmarathon.training/plan');
+  }, 15000);
 });

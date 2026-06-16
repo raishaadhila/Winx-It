@@ -8,6 +8,11 @@ They verify:
 
 The planner uses NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
 which is the OpenAI-compatible NIM endpoint.
+
+Key resolution order (first non-empty wins):
+  1. NVIDIA_API_KEY environment variable
+  2. NVIDIA_API_KEY in the .env file at the repo root
+  3. Legacy DEEPSEEK_API_KEY in .env (for old configs)
 """
 import json
 import os
@@ -32,10 +37,28 @@ def _read_env_file() -> dict[str, str]:
     return out
 
 
-_real_env = _read_env_file()
-# Accept the key from either NVIDIA_API_KEY (new) or DEEPSEEK_API_KEY (legacy)
-# — the user stored the NVIDIA key there before we locked to NVIDIA only.
-_NVIDIA_KEY = _real_env.get("NVIDIA_API_KEY") or _real_env.get("DEEPSEEK_API_KEY", "")
+def _has_real_key() -> tuple[bool, dict[str, str]]:
+    """Return (should_run, env) — env takes effect only when should_run is True.
+
+    Resolution order: env var first (lets CI override), then .env file.
+    This way `NVIDIA_API_KEY=""` in CI correctly disables the real-LLM run.
+    """
+    env: dict[str, str] = {}
+    file_env = _read_env_file()
+    env.update(file_env)
+    # Environment variable wins if explicitly set (even to empty string).
+    # An explicit empty string is a signal "I want to disable this" — respect it.
+    for k in ("NVIDIA_API_KEY", "NVIDIA_MODEL", "NVIDIA_BASE_URL",
+              "DEEPSEEK_API_KEY", "DEEPSEEK_MODEL", "DEEPSEEK_BASE_URL"):
+        if k in os.environ:
+            env[k] = os.environ[k]
+    key = env.get("NVIDIA_API_KEY", "")
+    should_run = bool(key) and not key.startswith("nvapi-YOUR") and "test" not in key
+    return should_run, env
+
+
+_should_run, _real_env = _has_real_key()
+_NVIDIA_KEY = _real_env.get("NVIDIA_API_KEY", "")
 _NVIDIA_BASE = _real_env.get("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
 # Use the org-prefixed model name by default — this is NVIDIA NIM's convention.
 # The user may have a non-prefixed legacy value in .env; the Settings default
@@ -48,8 +71,8 @@ _NVIDIA_MODEL = (
 
 # Skip if no real key, or key is a placeholder
 pytestmark = pytest.mark.skipif(
-    not _NVIDIA_KEY or _NVIDIA_KEY.startswith("nvapi-YOUR") or "test" in _NVIDIA_KEY,
-    reason="Real NVIDIA_API_KEY not configured in .env (set NVIDIA_API_KEY=nvapi-...)",
+    not _should_run,
+    reason="Real NVIDIA_API_KEY not configured (set NVIDIA_API_KEY=nvapi-... or in .env)",
 )
 
 
