@@ -172,9 +172,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [ai-personalization]
-    # Skip unless the secret is set. GitHub Actions treats empty strings as
-    # falsy, so a truthy check on the secret is the standard pattern.
-    if: ${{ secrets.NVIDIA_API_KEY }}
+    # The `secrets` context is NOT available in `if:`. Pass it through
+    # `env` first, then gate on the env var. Empty string is falsy.
+    env:
+      NVIDIA_API_KEY_FOR_GATE: ${{ secrets.NVIDIA_API_KEY }}
+    if: ${{ env.NVIDIA_API_KEY_FOR_GATE }}
     steps:
       - uses: actions/checkout@v4
 
