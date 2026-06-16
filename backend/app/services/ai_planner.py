@@ -4,6 +4,11 @@ AI plan-generation service.
 Uses OpenAI's Python SDK pointed at the NVIDIA NIM endpoint
 (OpenAI-compatible). The model is `deepseek-ai/deepseek-v4-flash` served
 via https://integrate.api.nvidia.com/v1.
+
+The planner is what makes Winx It! personalized: before calling the LLM,
+it enriches any user attachments (fetches link content, extracts text
+from uploaded files) so the generated plan reflects the user's real
+context — not just the goal string.
 """
 from __future__ import annotations
 
@@ -14,6 +19,7 @@ from openai import OpenAI
 
 from app.core.config import settings
 from app.schemas.models import GeneratedPlan, PlanGenerateRequest, Pillar
+from app.services.enrichment import enrich_attachments
 
 SYSTEM_PROMPT = """\
 You are Winx It!'s quest architect. You transform a free-form personal goal
@@ -42,20 +48,15 @@ def _user_prompt(req: PlanGenerateRequest, days: int) -> str:
         f"PILLARS TO COVER: {pillars}",
     ]
     if req.attachments:
-        att_lines = ["\nATTACHMENTS (consider these as supporting context):"]
-        for a in req.attachments:
-            if a.kind == "link":
-                att_lines.append(f"- 🔗 {a.name}")
-            elif a.kind == "image":
-                att_lines.append(f"- 🖼️ image: {a.name} ({a.mime or 'image'})")
-            else:
-                att_lines.append(f"- 📄 file: {a.name} ({a.mime or 'file'})")
-        # If any links, ask the model to fetch them
-        if any(a.kind == "link" for a in req.attachments):
-            att_lines.append(
-                "\nFor link attachments, you may fetch their content to inform the plan."
-            )
-        parts.append("\n".join(att_lines))
+        # This is the personalization step: we actually fetch the links and
+        # extract the text from files so the LLM has real context to use.
+        parts.append(enrich_attachments(req.attachments))
+        parts.append(
+            "\nUse the above attachment context to make the plan specific "
+            "to the user's actual situation — reference concrete details "
+            "from links/files when relevant, and tailor task descriptions "
+            "to the tools, topics, and people mentioned."
+        )
     if req.custom_prompt:
         parts.append(f"\nCUSTOM PROMPT (extra instructions from the user):\n{req.custom_prompt}")
     parts.append(

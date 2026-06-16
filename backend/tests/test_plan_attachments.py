@@ -4,6 +4,7 @@ The AI planner now accepts user attachments (files, images, links) and an
 optional custom_prompt column. This test locks in the schema contract.
 """
 from datetime import date
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -92,10 +93,14 @@ class TestUserPromptBuilding:
             **_base(),
             attachments=[{"id": "1", "kind": "link", "name": "https://x.io", "value": "https://x.io"}],
         )
-        prompt = _user_prompt(req, days=30)
+        # Mock the link fetcher so we don't hit the real network
+        fake_resp = MagicMock(); fake_resp.status_code = 200; fake_resp.text = "<html></html>"
+        with patch("app.services.enrichment.httpx.Client") as MockClient:
+            MockClient.return_value.__enter__.return_value.get.return_value = fake_resp
+            prompt = _user_prompt(req, days=30)
+
         assert "ATTACHMENTS" in prompt
         assert "https://x.io" in prompt
-        assert "fetch" in prompt.lower()  # links can be fetched
 
     def test_includes_custom_prompt_when_present(self):
         from app.services.ai_planner import _user_prompt

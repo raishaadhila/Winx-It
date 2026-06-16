@@ -39,6 +39,11 @@ export function PromptPage() {
   const [generating, setGenerating] = useState(false);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [animSteps, setAnimSteps] = useState<string[]>([
+    'Analyzing goal…',
+    'Mapping pillars…',
+    'Casting structure…',
+  ]);
 
   // Auto-detect URLs pasted into the goal textarea → promote them to
   // attachments. This satisfies the "users can paste link" flow.
@@ -66,15 +71,23 @@ export function PromptPage() {
     setSaving(false);
     setStep(0);
 
-    // Animate the 3 steps
-    const messages = ['Analyzing goal…', 'Mapping pillars…', 'Casting structure…'];
+    // Build the step list. If the user attached anything, the planner will
+    // fetch link content + extract file text, so we add a "Reading your
+    // attachments…" step. If not, we skip it to keep the animation snappy.
+    const baseSteps = ['Analyzing goal…', 'Mapping pillars…', 'Casting structure…'];
+    const messages =
+      attachments.length > 0
+        ? [...baseSteps.slice(0, 1), 'Reading your attachments…', ...baseSteps.slice(1)]
+        : baseSteps;
+    setAnimSteps(messages);
+    const stepInterval = attachments.length > 0 ? 750 : 600;
     let i = 0;
     const tick = () => {
       setStep(i);
       i++;
-      if (i < messages.length) setTimeout(tick, 600);
+      if (i < messages.length) setTimeout(tick, stepInterval);
     };
-    setTimeout(tick, 600);
+    setTimeout(tick, stepInterval);
 
     try {
       const customDays = timeframe === 'custom' ? 60 : undefined;
@@ -220,10 +233,13 @@ export function PromptPage() {
               <p className="font-display text-xl font-bold text-primary text-glow-pink">
                 {saving
                   ? 'Saving your quest…'
-                  : ['Analyzing goal…', 'Mapping pillars…', 'Casting structure…'][step]}
+                  : animSteps[step] ?? 'Casting your quest…'}
               </p>
               <div className="flex gap-2 mt-2">
-                {(saving ? [0, 1, 2, 3] : [0, 1, 2]).map((i) => (
+                {(saving
+                  ? [0, 1, 2, 3]
+                  : animSteps.map((_, i) => i)
+                ).map((i) => (
                   <span
                     key={i}
                     className={`w-2 h-2 rounded-full transition-all ${
