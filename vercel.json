@@ -1,28 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-
-  "builds": [
-    {
-      "src": "app/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "app/dist"
-      }
-    },
-    {
-      "src": "backend/vercel_index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb",
-        "maxDuration": 60,
-        "runtime": "python3.12"
-      }
-    }
-  ],
+  "framework": "vite",
+  "buildCommand": "npm --prefix app install && npm --prefix app run build",
+  "installCommand": "npm --prefix app install",
+  "outputDirectory": "app/dist",
 
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "backend/vercel_index.py" },
-    { "source": "/(.*)",      "destination": "/app/dist/$1" }
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
+    { "source": "/(.*)", "destination": "/app/dist/$1" }
   ]
 }
